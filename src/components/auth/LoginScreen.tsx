@@ -1,198 +1,187 @@
+// src/components/auth/LoginScreen.tsx
 'use client';
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { INITIAL_ACCOUNTS, SYSTEM_TITLES } from '@/data/accounts';
+import { AccountProfile } from '@/types/system';
 import { useApp } from '@/context/AppContext';
-import { DongSonSun, AncientCloudMotif } from '../common/DongSonMotif';
-import { HeritageCornerDecoration } from '../common/HeritageCornerDecoration';
-import {
-  Landmark,
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  Sparkles,
-  ArrowRight,
-  ShieldCheck,
-  Compass,
-  MapPin,
-  CheckCircle2,
-} from 'lucide-react';
+import { ShieldAlert, UserCheck, Lock, User, Sparkles, ArrowRight } from 'lucide-react';
 
-export const LoginScreen: React.FC = () => {
-  const { login, loginAsDemoUser, userProfile } = useApp();
+interface LoginScreenProps {
+  onLoginSuccess?: (account: AccountProfile) => void;
+}
 
-  const [email, setEmail] = useState('nam.legacy@keeper.vn');
-  const [password, setPassword] = useState('DiSanVietNam@1975');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+export function LoginScreen({ onLoginSuccess }: LoginScreenProps = {}) {
+  const { loginAsAccount, login } = useApp();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      login(email, password);
-      setIsLoading(false);
-    }, 450);
+  const handleSelectAccount = (account: AccountProfile) => {
+    if (loginAsAccount) {
+      loginAsAccount(account);
+    }
+    if (onLoginSuccess) {
+      onLoginSuccess(account);
+    }
   };
 
-  const handleQuickDemoLogin = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      loginAsDemoUser();
-      setIsLoading(false);
-    }, 350);
+  const handleManualLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const found = INITIAL_ACCOUNTS.find(
+      (acc) => acc.username.toLowerCase() === username.trim().toLowerCase() && acc.password === password
+    );
+    if (!found) {
+      setError('Tên đăng nhập hoặc mật khẩu không chính xác (Mật khẩu mặc định: 123)');
+      return;
+    }
+    handleSelectAccount(found);
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-between relative overflow-hidden bg-[#FAF6F0] text-[#162A45] p-5 select-none">
-      {/* Background Dong Son Motif */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5 overflow-hidden">
-        <DongSonSun size={600} color="#162A45" opacity={0.3} />
-      </div>
+    <div className="min-h-screen bg-[#070D17] text-white flex items-center justify-center p-4 md:p-8 relative overflow-hidden select-none font-sans">
+      {/* Vòng tròn họa tiết radar Đông Sơn phía sau */}
+      <div className="absolute w-[700px] h-[700px] rounded-full border border-amber-500/10 pointer-events-none animate-pulse" />
+      <div className="absolute w-[500px] h-[500px] rounded-full border border-amber-500/15 pointer-events-none" />
 
-      {/* Decorative Cloud */}
-      <div className="absolute top-10 right-2 pointer-events-none opacity-25">
-        <AncientCloudMotif color="#8B2626" opacity={0.4} />
-      </div>
+      <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 bg-[#0E1726]/90 border border-amber-500/30 rounded-3xl shadow-2xl overflow-hidden backdrop-blur-xl z-10">
+        {/* Cột trái: Form Đăng nhập */}
+        <div className="lg:col-span-5 p-8 border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-11 h-11 rounded-full bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-400 font-serif font-bold text-xl shadow-[0_0_15px_rgba(245,158,11,0.4)]">
+                L
+              </div>
+              <div>
+                <h1 className="text-lg font-extrabold tracking-wider text-amber-400">LEGACY KEEPERS</h1>
+                <p className="text-xs text-slate-400">Hệ Thống Định Danh Người Gìn Giữ Di Sản</p>
+              </div>
+            </div>
 
-      {/* Top Brand Header */}
-      <div className="pt-8 text-center space-y-2 z-10">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#8B2626] to-[#5C1414] text-[#FFE082] mx-auto flex items-center justify-center shadow-lg border-2 border-[#D9A05B]/60 ring-4 ring-[#D9A05B]/20"
-        >
-          <Landmark className="w-8 h-8 fill-current" />
-        </motion.div>
+            <h2 className="text-2xl font-bold mb-2">Đăng nhập Trạm Điều Hành</h2>
+            <p className="text-xs text-slate-400 mb-6">
+              Sử dụng tài khoản Quản trị viên (Admin) để mở khóa CMS hoặc tài khoản Nhà khám phá (User).
+            </p>
 
-        <div>
-          <span className="text-[10px] font-bold text-[#D9A05B] uppercase tracking-widest font-heritage block">
-            NGƯỜI GÌN GIỮ KÝ ỨC DI SẢN
-          </span>
-          <h1 className="text-xl font-black text-[#162A45] font-heritage tracking-wide">
-            THE LEGACY KEEPERS
-          </h1>
-          <p className="text-xs text-stone-600 mt-1 max-w-[280px] mx-auto leading-relaxed">
-            Hành trình khám phá lịch sử Việt Nam qua định vị GPS, Minigame Storyteller và bảo tàng ký ức
-          </p>
-        </div>
-      </div>
+            <form onSubmit={handleManualLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Tên định danh (Username)
+                </label>
+                <div className="relative">
+                  <User size={16} className="absolute left-3.5 top-3 text-slate-500" />
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="VD: admin hoặc hieu_keeper"
+                    className="w-full bg-[#09101B] border border-slate-700 focus:border-amber-500 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none transition text-white placeholder-slate-500"
+                  />
+                </div>
+              </div>
 
-      {/* Login Card Form */}
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.15, duration: 0.5 }}
-        className="w-full max-w-sm mx-auto rounded-3xl bg-white border border-[#E8DFD1] p-5 shadow-xl relative overflow-hidden space-y-4 z-10"
-      >
-        <HeritageCornerDecoration color="#D9A05B" size={14} />
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Mật mã (Password)
+                </label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3.5 top-3 text-slate-500" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Mật khẩu mặc định: 123"
+                    className="w-full bg-[#09101B] border border-slate-700 focus:border-amber-500 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none transition text-white placeholder-slate-500"
+                  />
+                </div>
+              </div>
 
-        <div className="text-left border-b border-stone-100 pb-2">
-          <h2 className="text-sm font-extrabold text-[#162A45] font-heritage">
-            Đăng Nhập Tài Khoản
-          </h2>
-          <p className="text-[11px] text-stone-500">
-            Tiếp tục hành trình lưu giữ trang sử hào hùng
-          </p>
-        </div>
+              {error && (
+                <p className="text-xs text-red-400 bg-red-950/40 border border-red-800/50 p-2.5 rounded-lg">
+                  {error}
+                </p>
+              )}
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Email / Username */}
-          <div className="space-y-1 text-left">
-            <label className="text-[10px] font-bold text-stone-600 uppercase font-heritage flex items-center gap-1">
-              <Mail className="w-3 h-3 text-[#D9A05B]" />
-              <span>Email hoặc Username</span>
-            </label>
-            <input
-              type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="nhakhampha@legacykeepers.vn"
-              className="w-full px-3 py-2.5 rounded-xl bg-stone-50 border border-[#DFD3C3] text-xs font-medium text-[#162A45] focus:outline-none focus:ring-2 focus:ring-[#8B2626]/30 focus:border-[#8B2626]"
-              required
-            />
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg transition active:scale-95"
+              >
+                <span>Kết Nối Vệ Tinh Di Sản</span>
+                <ArrowRight size={16} />
+              </button>
+            </form>
           </div>
 
-          {/* Password */}
-          <div className="space-y-1 text-left">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] font-bold text-stone-600 uppercase font-heritage flex items-center gap-1">
-                <Lock className="w-3 h-3 text-[#D9A05B]" />
-                <span>Mật khẩu</span>
-              </label>
-              <button
-                type="button"
-                className="text-[10px] text-[#8B2626] font-bold hover:underline font-heritage"
-              >
-                Quên mật khẩu?
-              </button>
-            </div>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="w-full pl-3 pr-9 py-2.5 rounded-xl bg-stone-50 border border-[#DFD3C3] text-xs font-medium text-[#162A45] focus:outline-none focus:ring-2 focus:ring-[#8B2626]/30 focus:border-[#8B2626]"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+          <div className="mt-8 pt-4 border-t border-slate-800/80 text-[11px] text-slate-500">
+            Mật khẩu chung cho cả 6 tài khoản thử nghiệm: <code className="text-amber-400 font-bold">123</code>
+          </div>
+        </div>
+
+        {/* Cột phải: Bảng Chọn Nhanh 6 Tài Khoản (1 Admin + 5 Users) */}
+        <div className="lg:col-span-7 p-8 bg-[#0A111D]/60">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Sparkles size={16} className="text-amber-400" />
+                Chuyển Nhanh 6 Tài Khoản Hệ Thống (1-Click Login)
+              </h3>
+              <p className="text-xs text-slate-400">
+                Chọn 1 trong 6 hồ sơ dưới đây để vào thẳng giao diện với quyền hạn tương ứng
+              </p>
             </div>
           </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-[#8B2626] to-[#A02C2C] text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all font-heritage cursor-pointer border border-[#8B2626]"
-          >
-            {isLoading ? (
-              <span>Đang kết nối...</span>
-            ) : (
-              <>
-                <span>Đăng Nhập</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
-        </form>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {INITIAL_ACCOUNTS.map((acc) => {
+              const titleObj = SYSTEM_TITLES.find((t) => t.id === acc.activeTitleId);
+              const isAdmin = acc.role === 'ADMIN';
 
-        {/* Divider */}
-        <div className="relative flex items-center justify-center py-1">
-          <div className="border-t border-stone-200 w-full" />
-          <span className="bg-white px-3 text-[10px] font-bold text-stone-400 uppercase font-heritage">
-            HOẶC
-          </span>
+              return (
+                <button
+                  key={acc.id}
+                  onClick={() => handleSelectAccount(acc)}
+                  className={`text-left p-3.5 rounded-2xl border transition-all flex items-start gap-3.5 group cursor-pointer ${
+                    isAdmin
+                      ? 'bg-gradient-to-br from-red-950/40 via-[#131D31] to-amber-950/30 border-amber-500/60 hover:border-amber-400 shadow-[0_0_15px_rgba(212,175,55,0.2)]'
+                      : 'bg-[#111B2E]/80 border-slate-800 hover:border-amber-500/50 hover:bg-[#152238]'
+                  }`}
+                >
+                  <img
+                    src={acc.avatarUrl}
+                    alt={acc.displayName}
+                    className={`w-12 h-12 rounded-full object-cover border-2 shrink-0 ${
+                      isAdmin ? 'border-amber-400' : 'border-slate-600 group-hover:border-amber-400'
+                    }`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span
+                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1 ${
+                          isAdmin
+                            ? 'bg-amber-500 text-slate-950 font-bold'
+                            : 'bg-slate-800 text-slate-300 border border-slate-700'
+                        }`}
+                      >
+                        {isAdmin ? <ShieldAlert size={11} /> : <UserCheck size={11} />}
+                        {isAdmin ? 'ADMIN CMS' : `USER • CẤP ${String(acc.level).padStart(2, '0')}`}
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400">@{acc.username}</span>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-white mt-1.5 truncate">{acc.displayName}</h4>
+
+                    <p className={`text-xs mt-0.5 truncate ${titleObj?.auraClass || 'text-amber-400'}`}>
+                      ★ {titleObj?.name}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
-
-        {/* Quick Demo Login Button */}
-        <button
-          type="button"
-          onClick={handleQuickDemoLogin}
-          disabled={isLoading}
-          className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#162A45] via-[#1E375A] to-[#0E1E33] text-amber-200 font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:brightness-110 active:scale-95 transition-all font-heritage border border-[#D9A05B]/40 cursor-pointer"
-        >
-          <Sparkles className="w-4 h-4 text-[#FFE082]" />
-          <span>⚡ Đăng nhập nhanh bằng tài khoản mẫu</span>
-        </button>
-      </motion.div>
-
-      {/* Footer copyright */}
-      <div className="text-center text-[10px] text-stone-500 py-3 z-10 space-y-1">
-        <p className="flex items-center justify-center gap-1 font-medium">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Bảo mật dữ liệu định vị & Tôn vinh lịch sử dân tộc</span>
-        </p>
-        <p>© 2026 The Legacy Keepers · Phiên bản 2.4.0</p>
       </div>
     </div>
   );
-};
+}
+
+export default LoginScreen;

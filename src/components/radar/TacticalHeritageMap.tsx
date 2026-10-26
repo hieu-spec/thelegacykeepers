@@ -1,547 +1,619 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import {
+  Search,
+  Layers,
+  Compass,
+  Navigation,
+  Sparkles,
+  Radio,
+  MapPin,
+  Eye,
+  Crosshair,
+  ChevronRight,
+  ShieldCheck,
+  LocateFixed,
+} from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { HistoricalLocation, LocationRarity, LocationContentType } from '@/types/location';
-import {
-  Compass,
-  Plus,
-  Minus,
-  LocateFixed,
-  Sparkles,
-  Flame,
-  Flag,
-  Landmark,
-  Radio,
-  Swords,
-  Scroll,
-  Eye,
-  CheckCircle2,
-} from 'lucide-react';
 
-interface TacticalMapProps {
-  locations: HistoricalLocation[];
-  onSelectLocation: (location: HistoricalLocation) => void;
-  selectedLocationId?: string;
-  activeFilterType: LocationContentType | 'all';
-  activeRarity: LocationRarity | 'all';
-}
+export type MapStyleMode = 'satellite' | 'tactical' | 'heritage';
 
-// Center reference point for Saigon Map (Bến Nhà Rồng / Sông Sài Gòn)
-const MAP_CENTER = {
-  lat: 10.772,
-  lng: 106.698,
+export const MAP_STYLES: Record<
+  MapStyleMode,
+  {
+    name: string;
+    baseUrl: string;
+    overlayUrl?: string;
+    filter?: string;
+  }
+> = {
+  satellite: {
+    name: 'Vệ Tinh Thực Địa',
+    // Ảnh vệ tinh độ phân giải cao từ Esri (Miễn phí 100%, không cần API key)
+    baseUrl:
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    // Lớp tên đường, ranh giới & địa danh từ Esri World Boundaries & Places (100% không watermark)
+    overlayUrl:
+      'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+    filter: 'contrast(1.08) saturate(1.15) brightness(0.92)',
+  },
+  tactical: {
+    name: 'Tác Chiến Đêm',
+    // Endpoint CartoCDN chuẩn không yêu cầu API key, không watermark
+    baseUrl: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    filter: 'contrast(1.15) brightness(0.95)',
+  },
+  heritage: {
+    name: 'Sa Bàn Cổ Sử',
+    // Bản đồ địa hình Esri Topo với bộ lọc sa bàn cổ
+    baseUrl:
+      'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    filter: 'sepia(0.65) contrast(1.15) brightness(0.85) hue-rotate(-15deg)',
+  },
 };
 
-// Map scale: pixels per degree of latitude/longitude
-const LAT_SCALE = 24000;
-const LNG_SCALE = 24000;
+export interface TacticalMapProps {
+  locations?: HistoricalLocation[];
+  onSelectLocation?: (location: HistoricalLocation) => void;
+  selectedLocationId?: string;
+  activeFilterType?: LocationContentType | 'all';
+  activeRarity?: LocationRarity | 'all';
+}
 
-export const TacticalHeritageMap: React.FC<TacticalMapProps> = ({
-  locations,
-  onSelectLocation,
+export function TacticalHeritageMap({
+  locations: propLocations,
+  onSelectLocation: propOnSelectLocation,
   selectedLocationId,
   activeFilterType,
   activeRarity,
-}) => {
-  const { currentGps, getLocationProximity } = useApp();
+}: TacticalMapProps = {}) {
+  const {
+    locations: contextLocations,
+    userLocation,
+    currentGps,
+    setUserLocation,
+    setGpsCoordinates,
+    setSelectedLocation,
+    startArNavigation,
+  } = useApp();
 
-  // Pan & Zoom State
-  const [zoom, setZoom] = useState<number>(1.1);
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const [mapWidth, setMapWidth] = useState<number>(200);
+  const locations = propLocations || contextLocations;
+  const currentUserPos = userLocation || currentGps || { lat: 10.7769, lng: 106.6953 };
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setMapWidth(Math.min(window.innerWidth / 2, 220));
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const baseLayerRef = useRef<any>(null);
+  const overlayLayerRef = useRef<any>(null);
+  const markersLayerRef = useRef<any>(null);
+  const routeLineRef = useRef<any>(null);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [mapMode, setMapMode] = useState<MapStyleMode>('satellite');
+  const [is3DTilt, setIs3DTilt] = useState<boolean>(false);
+  const [activeLoc, setActiveLoc] = useState<HistoricalLocation | null>(null);
+  const [cursorCoords, setCursorCoords] = useState<{ lat: number; lng: number }>({
+    lat: 10.7769,
+    lng: 106.6953,
+  });
+
+  // Lọc danh sách địa danh theo ô tìm kiếm và filters
+  const filteredLocations = useMemo(() => {
+    let list = locations;
+    if (activeRarity && activeRarity !== 'all') {
+      list = list.filter((loc) => loc.rarity === activeRarity);
     }
+    if (activeFilterType && activeFilterType !== 'all') {
+      list = list.filter((loc) => loc.contentType === activeFilterType);
+    }
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase();
+    return list.filter(
+      (loc) =>
+        loc.name.toLowerCase().includes(q) ||
+        loc.address?.toLowerCase().includes(q) ||
+        loc.historicalSummary?.toLowerCase().includes(q)
+    );
+  }, [locations, searchQuery, activeRarity, activeFilterType]);
+
+  // Khởi tạo Leaflet thông qua CDN để tránh lỗi SSR và đảm bảo chạy mượt trên Next.js 16
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let isMounted = true;
+
+    const initLeaflet = async () => {
+      // Nạp CSS Leaflet nếu chưa có
+      if (!document.getElementById('leaflet-css')) {
+        const link = document.createElement('link');
+        link.id = 'leaflet-css';
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+      }
+
+      // Nạp JS Leaflet
+      let L = (window as any).L;
+      if (!L) {
+        await new Promise<void>((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          script.onload = () => resolve();
+          document.body.appendChild(script);
+        });
+        L = (window as any).L;
+      }
+
+      if (!isMounted || !mapContainerRef.current || mapInstanceRef.current) return;
+
+      const map = L.map(mapContainerRef.current, {
+        center: [currentUserPos.lat, currentUserPos.lng],
+        zoom: 15,
+        zoomControl: false,
+        attributionControl: false,
+      });
+
+      mapInstanceRef.current = map;
+
+      // Khởi tạo lớp bản đồ mặc định (Vệ tinh thực địa)
+      const style = MAP_STYLES[mapMode];
+      baseLayerRef.current = L.tileLayer(style.baseUrl, {
+        maxZoom: 19,
+        subdomains: ['a', 'b', 'c', 'd'],
+      }).addTo(map);
+
+      if (style.overlayUrl) {
+        overlayLayerRef.current = L.tileLayer(style.overlayUrl, {
+          maxZoom: 19,
+          subdomains: ['a', 'b', 'c', 'd'],
+          opacity: 0.85,
+        }).addTo(map);
+      }
+
+      markersLayerRef.current = L.layerGroup().addTo(map);
+
+      // Cập nhật tọa độ con trỏ chuột theo thời gian thực
+      map.on('mousemove', (e: any) => {
+        setCursorCoords({
+          lat: Number(e.latlng.lat.toFixed(5)),
+          lng: Number(e.latlng.lng.toFixed(5)),
+        });
+      });
+
+      renderMarkersAndRoutes();
+    };
+
+    initLeaflet();
+
+    return () => {
+      isMounted = false;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
   }, []);
 
-  // Convert GPS Coordinates to Canvas Map Coordinates
-  const coordToMapPoint = useCallback(
-    (lat: number, lng: number) => {
-      // 0,0 is center of map
-      const x = (lng - MAP_CENTER.lng) * LNG_SCALE * zoom + pan.x;
-      // Invert Y for screen coordinates (North is up)
-      const y = -(lat - MAP_CENTER.lat) * LAT_SCALE * zoom + pan.y;
-      return { x, y };
-    },
-    [zoom, pan]
-  );
-
-  // Center on user GPS position on mount or when teleporting
-  const centerOnUser = useCallback(() => {
-    // Reset pan so currentGps is centered
-    const targetX = -(currentGps.lng - MAP_CENTER.lng) * LNG_SCALE * zoom;
-    const targetY = (currentGps.lat - MAP_CENTER.lat) * LAT_SCALE * zoom;
-    setPan({ x: targetX, y: targetY });
-  }, [currentGps, zoom]);
-
+  // Đổi chế độ nền bản đồ (Vệ tinh / Tác chiến đêm / Sa bàn cổ)
   useEffect(() => {
-    centerOnUser();
-  }, [currentGps.lat, currentGps.lng]);
+    const L = (window as any).L;
+    const map = mapInstanceRef.current;
+    if (!L || !map) return;
 
-  // Touch & Mouse Drag Handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-  };
+    const style = MAP_STYLES[mapMode];
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setPan({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
+    if (baseLayerRef.current) map.removeLayer(baseLayerRef.current);
+    if (overlayLayerRef.current) map.removeLayer(overlayLayerRef.current);
+
+    baseLayerRef.current = L.tileLayer(style.baseUrl, {
+      maxZoom: 19,
+      subdomains: ['a', 'b', 'c', 'd'],
+    }).addTo(map);
+
+    if (style.overlayUrl) {
+      overlayLayerRef.current = L.tileLayer(style.overlayUrl, {
+        maxZoom: 19,
+        subdomains: ['a', 'b', 'c', 'd'],
+        opacity: 0.9,
+      }).addTo(map);
+    }
+  }, [mapMode]);
+
+  // Vẽ các chân ghim phát sáng và đường nối chiến dịch
+  const renderMarkersAndRoutes = () => {
+    const L = (window as any).L;
+    const map = mapInstanceRef.current;
+    const group = markersLayerRef.current;
+    if (!L || !map || !group) return;
+
+    group.clearLayers();
+
+    // Vẽ đường nối đứt nét màu vàng kim giữa các di tích gần nhau
+    const coordsList = filteredLocations.map((loc: any) => [
+      loc.coordinates?.lat ?? loc.lat,
+      loc.coordinates?.lng ?? loc.lng,
+    ]);
+
+    if (coordsList.length > 1) {
+      routeLineRef.current = L.polyline(coordsList, {
+        color: '#D4AF37',
+        weight: 2,
+        opacity: 0.45,
+        dashArray: '6, 10',
+      }).addTo(group);
+    }
+
+    // Vẽ từng chân ghim di tích thông minh (Anti-Overlap Beacons)
+    filteredLocations.forEach((loc: any) => {
+      const lat = loc.coordinates?.lat ?? loc.lat;
+      const lng = loc.coordinates?.lng ?? loc.lng;
+      if (!lat || !lng) return;
+
+      const isLegendary = loc.rarity === 'legendary' || loc.rarity === 'event';
+      const accentColor = isLegendary
+        ? '#F59E0B' // Vàng Rồng Huyền Thoại
+        : loc.rarity === 'rare'
+        ? '#EF4444' // Đỏ Chu Sa Chiến Tích
+        : '#10B981'; // Ngọc Lục Bảo Di Sản
+
+      const customIcon = L.divIcon({
+        className: 'custom-heritage-beacon',
+        html: `
+          <div class="beacon-wrapper group ${isLegendary ? 'is-legendary' : ''}">
+            <!-- Vòng sóng radar lan tỏa -->
+            <span class="pulse-ring" style="border-color: ${accentColor};"></span>
+            <span class="pulse-ring delay" style="border-color: ${accentColor};"></span>
+            
+            <!-- Tâm điểm phát sáng -->
+            <div class="beacon-core" style="background: ${accentColor}; box-shadow: 0 0 16px ${accentColor};">
+              <div class="beacon-inner-dot"></div>
+            </div>
+
+            <!-- Nhãn tên thu gọn, tự động phóng to và nổi lên trên khi hover -->
+            <div class="beacon-label">
+              <span class="status-dot" style="background: ${accentColor}; box-shadow: 0 0 8px ${accentColor};"></span>
+              <span class="label-text">${loc.name}</span>
+            </div>
+          </div>
+        `,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+      });
+
+      const marker = L.marker([lat, lng], { icon: customIcon }).addTo(group);
+
+      marker.on('click', () => {
+        setActiveLoc(loc);
+        if (propOnSelectLocation) {
+          propOnSelectLocation(loc);
+        }
+        if (setSelectedLocation) {
+          setSelectedLocation(loc);
+        }
+        map.flyTo([lat, lng], 17, {
+          animate: true,
+          duration: 1.2,
+        });
+      });
     });
   };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  useEffect(() => {
+    renderMarkersAndRoutes();
+  }, [filteredLocations]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
-      setIsDragging(true);
-      setDragStart({
-        x: e.touches[0].clientX - pan.x,
-        y: e.touches[0].clientY - pan.y,
+  // Recenter map back to user location
+  const handleRecenter = () => {
+    if (mapInstanceRef.current && currentUserPos.lat && currentUserPos.lng) {
+      mapInstanceRef.current.flyTo([currentUserPos.lat, currentUserPos.lng], 16, {
+        animate: true,
+        duration: 1.2,
       });
     }
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || e.touches.length !== 1) return;
-    setPan({
-      x: e.touches[0].clientX - dragStart.x,
-      y: e.touches[0].clientY - dragStart.y,
-    });
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
-
-  // Zoom controls
-  const zoomIn = () => setZoom((z) => Math.min(z + 0.25, 2.4));
-  const zoomOut = () => setZoom((z) => Math.max(z - 0.25, 0.65));
-
-  // User position in map pixels
-  const userMapPos = coordToMapPoint(currentGps.lat, currentGps.lng);
-
   return (
-    <div
-      ref={mapContainerRef}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      className="w-full h-full relative overflow-hidden bg-[#070D18] cursor-grab active:cursor-grabbing select-none"
-    >
-      {/* MAP BACKGROUND CANVAS: Sông Sài Gòn & Tuyến Đường Lịch Sử */}
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          {/* River Water Gradient */}
-          <linearGradient id="saigonRiverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#0B2F4A" />
-            <stop offset="50%" stopColor="#093C61" />
-            <stop offset="100%" stopColor="#072439" />
-          </linearGradient>
-
-          {/* Golden Road Glow Filter */}
-          <filter id="roadGlow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="1.5" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-
-          <pattern id="gridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#D4AF37" strokeWidth="0.5" strokeOpacity="0.08" />
-          </pattern>
-        </defs>
-
-        {/* Global Tactical Grid Layer */}
-        <rect width="100%" height="100%" fill="url(#gridPattern)" />
-
-        {/* Transformed Map Vector Elements */}
-        <g transform={`translate(${mapWidth}, 240)`}>
-          {/* SÔNG SÀI GÒN (Saigon River flowing curved through downtown and Bến Nhà Rồng) */}
-          <path
-            d={`M ${-280 * zoom + pan.x} ${-380 * zoom + pan.y} 
-               C ${-120 * zoom + pan.x} ${-220 * zoom + pan.y}, 
-                 ${140 * zoom + pan.x} ${-180 * zoom + pan.y}, 
-                 ${180 * zoom + pan.x} ${-40 * zoom + pan.y} 
-               C ${220 * zoom + pan.x} ${100 * zoom + pan.y}, 
-                 ${120 * zoom + pan.x} ${220 * zoom + pan.y}, 
-                 ${-50 * zoom + pan.x} ${320 * zoom + pan.y}
-               C ${-140 * zoom + pan.x} ${380 * zoom + pan.y}, 
-                 ${-80 * zoom + pan.x} ${460 * zoom + pan.y}, 
-                 ${-40 * zoom + pan.x} ${560 * zoom + pan.y}`}
-            fill="none"
-            stroke="url(#saigonRiverGrad)"
-            strokeWidth={48 * zoom}
-            strokeLinecap="round"
-          />
-
-          {/* Sông Sài Gòn Luminous Core Wave Line */}
-          <path
-            d={`M ${-280 * zoom + pan.x} ${-380 * zoom + pan.y} 
-               C ${-120 * zoom + pan.x} ${-220 * zoom + pan.y}, 
-                 ${140 * zoom + pan.x} ${-180 * zoom + pan.y}, 
-                 ${180 * zoom + pan.x} ${-40 * zoom + pan.y} 
-               C ${220 * zoom + pan.x} ${100 * zoom + pan.y}, 
-                 ${120 * zoom + pan.x} ${220 * zoom + pan.y}, 
-                 ${-50 * zoom + pan.x} ${320 * zoom + pan.y}`}
-            fill="none"
-            stroke="#1976D2"
-            strokeWidth={14 * zoom}
-            strokeOpacity="0.4"
-            strokeLinecap="round"
-          />
-
-          {/* Kênh Bến Nghé / Bến Vân Đồn (nhánh chảy qua Bến Nhà Rồng) */}
-          <path
-            d={`M ${120 * zoom + pan.x} ${220 * zoom + pan.y} 
-               C ${-20 * zoom + pan.x} ${190 * zoom + pan.y}, 
-                 ${-160 * zoom + pan.x} ${180 * zoom + pan.y}, 
-                 ${-320 * zoom + pan.x} ${240 * zoom + pan.y}`}
-            fill="none"
-            stroke="#093C61"
-            strokeWidth={20 * zoom}
-            strokeLinecap="round"
-          />
-
-          {/* TUYẾN ĐƯỜNG LỊCH SỬ HUYẾT MẠCH (Golden Illuminated Historic Streets) */}
-          {/* Đại lộ Lê Duẩn (từ Dinh Độc Lập hướng về Thảo Cầm Viên) */}
-          <line
-            x1={-45 * zoom + pan.x}
-            y1={-140 * zoom + pan.y}
-            x2={110 * zoom + pan.x}
-            y2={-60 * zoom + pan.y}
-            stroke="#D4AF37"
-            strokeWidth={4 * zoom}
-            strokeOpacity="0.85"
-            filter="url(#roadGlow)"
-          />
-          {/* Đại lộ Nam Kỳ Khởi Nghĩa (cắt ngang Dinh Độc Lập) */}
-          <line
-            x1={-120 * zoom + pan.x}
-            y1={-240 * zoom + pan.y}
-            x2={30 * zoom + pan.x}
-            y2={40 * zoom + pan.y}
-            stroke="#F59E0B"
-            strokeWidth={3 * zoom}
-            strokeOpacity="0.75"
-          />
-          {/* Đường Nguyễn Huệ / Đồng Khởi (hướng ra sông Sài Gòn) */}
-          <line
-            x1={20 * zoom + pan.x}
-            y1={-90 * zoom + pan.y}
-            x2={140 * zoom + pan.x}
-            y2={50 * zoom + pan.y}
-            stroke="#FFE082"
-            strokeWidth={3.5 * zoom}
-            strokeOpacity="0.8"
-          />
-          {/* Đại lộ Tôn Đức Thắng (chạy dọc ven sông Sài Gòn) */}
-          <path
-            d={`M ${160 * zoom + pan.x} ${-80 * zoom + pan.y} 
-               C ${190 * zoom + pan.x} ${40 * zoom + pan.y}, 
-                 ${130 * zoom + pan.x} ${160 * zoom + pan.y}, 
-                 ${60 * zoom + pan.x} ${230 * zoom + pan.y}`}
-            fill="none"
-            stroke="#D4AF37"
-            strokeWidth={3.5 * zoom}
-            strokeOpacity="0.85"
-          />
-          {/* Trục Hàm Nghi - Bến Vân Đồn */}
-          <line
-            x1={-10 * zoom + pan.x}
-            y1={10 * zoom + pan.y}
-            x2={120 * zoom + pan.x}
-            y2={130 * zoom + pan.y}
-            stroke="#D4AF37"
-            strokeWidth={2.5 * zoom}
-            strokeOpacity="0.6"
-          />
-
-          {/* Sông Sài Gòn Water Text Label */}
-          <text
-            x={175 * zoom + pan.x}
-            y={20 * zoom + pan.y}
-            fill="#4FC3F7"
-            fillOpacity="0.6"
-            fontSize={10 * zoom}
-            fontFamily="'Cinzel', serif"
-            fontWeight="bold"
-            letterSpacing="3"
-            transform={`rotate(45, ${175 * zoom + pan.x}, ${20 * zoom + pan.y})`}
-          >
-            SÔNG SÀI GÒN
-          </text>
-        </g>
-      </svg>
-
-      {/* MAP INTERACTIVE CONTENT CONTAINER */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          transform: `translate(${mapWidth}px, 240px)`,
+    <div className="relative w-full h-full min-h-[500px] bg-[#070C15] overflow-hidden select-none font-sans">
+      {/* CSS nội tuyến cho hiệu ứng Beacon, Sóng Radar & Góc nghiêng 3D */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        .leaflet-container {
+          background: #070c15 !important;
+          font-family: inherit;
+        }
+        .leaflet-tile-pane {
+          filter: ${MAP_STYLES[mapMode].filter};
+          transition: filter 0.5s ease;
+        }
+        .map-3d-tilt {
+          transform: perspective(1400px) rotateX(28deg) scale(1.18);
+          transform-origin: center 65%;
+          transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .map-flat {
+          transform: none;
+          transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .beacon-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          cursor: pointer;
+        }
+        .pulse-ring {
+          position: absolute;
+          width: 38px;
+          height: 38px;
+          border-radius: 9999px;
+          border: 2px solid #f59e0b;
+          animation: radarPulse 2.4s infinite ease-out;
+          pointer-events: none;
+        }
+        .pulse-ring.delay {
+          animation-delay: 1.2s;
+        }
+        @keyframes radarPulse {
+          0% {
+            transform: scale(0.45);
+            opacity: 0.95;
+          }
+          100% {
+            transform: scale(2.4);
+            opacity: 0;
+          }
+        }
+        .beacon-core {
+          position: relative;
+          z-index: 10;
+          width: 16px;
+          height: 16px;
+          border-radius: 9999px;
+          border: 2px solid #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.25s ease;
+        }
+        .beacon-wrapper:hover .beacon-core {
+          transform: scale(1.35);
+        }
+        .beacon-inner-dot {
+          width: 4px;
+          height: 4px;
+          border-radius: 9999px;
+          background: #ffffff;
+        }
+        .beacon-label {
+          position: absolute;
+          left: 26px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 12px;
+          border-radius: 9999px;
+          background: rgba(11, 19, 32, 0.92);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(212, 175, 55, 0.65);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.65),
+            0 0 12px rgba(212, 175, 55, 0.2);
+          white-space: nowrap;
+          transition: all 0.25s ease;
+          z-index: 20;
+          opacity: 0;
+          pointer-events: none;
+          transform: scale(0.95);
+        }
+        .beacon-wrapper:hover .beacon-label,
+        .beacon-wrapper.is-legendary .beacon-label {
+          opacity: 1;
+          pointer-events: auto;
+          background: rgba(20, 32, 54, 0.98);
+          border-color: #fbbf24;
+          transform: translateY(-3px) scale(1.06);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.85),
+            0 0 18px rgba(251, 191, 36, 0.55);
+          z-index: 9999 !important;
+        }
+        .leaflet-marker-icon:hover {
+          z-index: 9999 !important;
+        }
+        .status-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 9999px;
+        }
+        .label-text {
+          color: #f8fafc;
+          font-size: 12.5px;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+        }
+      `,
         }}
-      >
-        {/* RADIUS RINGS AROUND EACH LOCATION (Bán kính phát hiện & tương tác) */}
-        {locations.map((loc) => {
-          const point = coordToMapPoint(loc.coordinates.lat, loc.coordinates.lng);
-          const prox = getLocationProximity(loc);
-          if (!prox.inDiscoveryRadius) return null;
+      />
 
-          // Scale interaction radius (m) to pixels
-          const interactionPx = Math.max(loc.interactionRadius * 0.45 * zoom, 18);
-          // Scale discovery radius (km) to pixels
-          const discoveryPx = Math.min(loc.discoveryRadius * 15 * zoom, 160);
+      {/* Khung chứa Bản đồ chính */}
+      <div
+        ref={mapContainerRef}
+        className={`w-full h-full ${is3DTilt ? 'map-3d-tilt' : 'map-flat'}`}
+      />
 
-          return (
-            <div
-              key={`radius-${loc.id}`}
-              style={{
-                left: point.x,
-                top: point.y,
-              }}
-              className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-            >
-              {/* Outer Discovery Radius Circle */}
-              <div
-                style={{
-                  width: discoveryPx * 2,
-                  height: discoveryPx * 2,
-                }}
-                className={`rounded-full border border-dashed transition-all ${
-                  loc.rarity === 'legendary'
-                    ? 'border-[#D4AF37]/25 bg-[#D4AF37]/[0.02]'
-                    : loc.rarity === 'event'
-                    ? 'border-red-500/25 bg-red-500/[0.02]'
-                    : loc.rarity === 'uncommon'
-                    ? 'border-emerald-500/25 bg-emerald-500/[0.02]'
-                    : 'border-amber-700/25'
-                }`}
-              />
+      {/* Lớp phủ Hiệu ứng Viền Tác Chiến (Tactical Vignette & Lưới Tọa Độ Mờ) */}
+      <div
+        className="pointer-events-none absolute inset-0 z-[400]"
+        style={{
+          background:
+            'radial-gradient(circle at center, transparent 55%, rgba(7, 12, 21, 0.75) 100%)',
+        }}
+      />
 
-              {/* Inner Interaction Radius Circle (Vòng kết nối) */}
-              <div
-                style={{
-                  width: interactionPx * 2,
-                  height: interactionPx * 2,
-                }}
-                className={`absolute inset-0 m-auto rounded-full border transition-all ${
-                  prox.inInteractionRadius
-                    ? 'border-emerald-400 bg-emerald-400/20 shadow-[0_0_20px_rgba(16,185,129,0.5)] animate-pulse'
-                    : 'border-[#D4AF37]/40 bg-[#D4AF37]/5'
-                }`}
-              />
-            </div>
-          );
-        })}
-
-        {/* CUSTOM PINS FOR ALL FILTERED LOCATIONS */}
-        {locations.map((loc) => {
-          const point = coordToMapPoint(loc.coordinates.lat, loc.coordinates.lng);
-          const prox = getLocationProximity(loc);
-          const isSelected = selectedLocationId === loc.id;
-          const isConnected = prox.inInteractionRadius;
-
-          // Rarity styling specifics per Phase 2 requirements:
-          // Thường: Màu đồng nâu
-          // Hiếm: Màu xanh ngọc lục bảo phát sáng (biểu tượng ngọn đuốc)
-          // Huyền thoại: Mô hình/Icon 3D Vàng rực rỡ kèm Aura Pulse lan rộng
-          // Sự kiện: Màu đỏ rực kèm cờ Tổ quốc
-          const rarityStyles = {
-            legendary: {
-              pinBg: 'bg-gradient-to-br from-[#FFE082] via-[#D4AF37] to-[#996515]',
-              pinBorder: 'border-2 border-[#FFF176]',
-              shadow: 'shadow-[0_0_25px_rgba(212,175,55,0.9)]',
-              textBadge: 'bg-[#D4AF37] text-slate-950',
-              icon: Sparkles,
-              hasAuraPulse: true,
-            },
-            event: {
-              pinBg: 'bg-gradient-to-br from-[#FF6B6B] via-[#E53E3E] to-[#9B1C1C]',
-              pinBorder: 'border-2 border-red-300',
-              shadow: 'shadow-[0_0_22px_rgba(229,62,62,0.9)]',
-              textBadge: 'bg-red-600 text-white',
-              icon: Flag,
-              hasAuraPulse: true,
-            },
-            uncommon: {
-              pinBg: 'bg-gradient-to-br from-[#34D399] via-[#059669] to-[#065F46]',
-              pinBorder: 'border-2 border-emerald-300',
-              shadow: 'shadow-[0_0_20px_rgba(16,185,129,0.8)]',
-              textBadge: 'bg-emerald-600 text-white',
-              icon: Flame, // Ngọn đuốc rực sáng
-              hasAuraPulse: false,
-            },
-            common: {
-              pinBg: 'bg-gradient-to-br from-[#C49A6C] via-[#8C6239] to-[#5C3D1E]',
-              pinBorder: 'border-2 border-[#D9B38C]',
-              shadow: 'shadow-[0_0_12px_rgba(140,98,57,0.6)]',
-              textBadge: 'bg-[#8C6239] text-amber-100',
-              icon: Landmark,
-              hasAuraPulse: false,
-            },
-          }[loc.rarity];
-
-          const IconComponent = rarityStyles.icon;
-
-          return (
-            <div
-              key={loc.id}
-              style={{
-                left: point.x,
-                top: point.y,
-                zIndex: isSelected ? 40 : isConnected ? 35 : 20,
-              }}
-              className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
-            >
-              <button
-                onClick={() => onSelectLocation(loc)}
-                className="group relative flex flex-col items-center focus:outline-none cursor-pointer"
-                aria-label={`Chi tiết di tích ${loc.name}`}
-              >
-                {/* Legendary / Event Aura Pulse Multi-Layer Animation */}
-                {rarityStyles.hasAuraPulse && (
-                  <>
-                    <span className="absolute -inset-4 rounded-full border border-[#D4AF37] animate-ping opacity-75" />
-                    <span className="absolute -inset-7 rounded-full bg-[#D4AF37]/15 blur-sm animate-pulse" />
-                  </>
-                )}
-
-                {/* Connected Sonar Ripple when user is close */}
-                {isConnected && (
-                  <span className="absolute -inset-5 rounded-full border-2 border-emerald-400 animate-ping opacity-90" />
-                )}
-
-                {/* 3D Pin Head with Icon */}
-                <motion.div
-                  animate={
-                    isSelected
-                      ? { scale: [1.15, 1.3, 1.15], y: [-2, -6, -2] }
-                      : { y: [0, -3, 0] }
-                  }
-                  transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-                  className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center shadow-2xl ${rarityStyles.pinBg} ${rarityStyles.pinBorder} ${rarityStyles.shadow} group-hover:scale-125 transition-transform duration-200`}
-                >
-                  <IconComponent className="w-5 h-5 text-slate-950 fill-current drop-shadow" />
-
-                  {/* Connected Live Green Indicator */}
-                  {isConnected && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-900 animate-bounce" />
-                  )}
-                </motion.div>
-
-                {/* Pin Needle Base Point */}
-                <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[7px] border-t-[#D4AF37] -mt-0.5" />
-
-                {/* Pin Label with Name and Real Distance */}
-                <div className="mt-1 px-2 py-0.5 rounded-full bg-[#0B1524]/95 backdrop-blur-md border border-[#D4AF37]/50 shadow-lg text-center flex flex-col items-center max-w-[130px] group-hover:border-[#D4AF37]">
-                  <p className="text-[10px] font-bold text-amber-100 truncate w-full font-heritage">
-                    {loc.name}
-                  </p>
-                  <p
-                    className={`text-[9px] font-semibold whitespace-nowrap ${
-                      isConnected ? 'text-emerald-400 font-extrabold animate-pulse' : 'text-slate-300'
-                    }`}
-                  >
-                    {isConnected ? '⚡ Đủ điều kiện kết nối' : `Cách ${prox.distanceFormatted}`}
-                  </p>
-                </div>
-              </button>
-            </div>
-          );
-        })}
-
-        {/* EXPLORER CHARACTER AT USER GPS CENTER */}
-        <div
-          style={{
-            left: userMapPos.x,
-            top: userMapPos.y,
-            zIndex: 30,
-          }}
-          className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-        >
-          {/* Radar Pulse Wave Rings (Sóng Radar lan tỏa liên tục) */}
-          <div className="absolute -inset-10 rounded-full border border-[#D4AF37]/60 animate-sonar-pulse" />
-          <div
-            className="absolute -inset-16 rounded-full border border-[#D4AF37]/40 animate-sonar-pulse"
-            style={{ animationDelay: '0.9s' }}
+      {/* Thanh Tìm kiếm & Bộ chuyển đổi Chế độ Bản đồ (Góc trên) */}
+      <div className="absolute top-4 left-4 right-4 z-[500] flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+        {/* Ô tìm kiếm */}
+        <div className="pointer-events-auto relative w-full sm:max-w-xs md:max-w-sm">
+          <Search className="w-4 h-4 text-amber-400/80 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm kiếm di tích trên toàn quốc..."
+            className="w-full pl-9 pr-4 py-2 rounded-full bg-[#0B1320]/90 backdrop-blur-md border border-amber-500/40 text-xs text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-amber-400 shadow-[0_0_20px_rgba(0,0,0,0.6)]"
           />
-          <div
-            className="absolute -inset-24 rounded-full border border-[#D4AF37]/20 animate-sonar-pulse"
-            style={{ animationDelay: '1.8s' }}
-          />
+        </div>
 
-          {/* Golden Radiant Compass Direction Needle */}
-          <div className="absolute -inset-5 rounded-full border border-dashed border-[#D4AF37]/60 animate-spin" style={{ animationDuration: '24s' }} />
+        {/* Cụm nút Chọn lớp bản đồ Vệ Tinh / Tác Chiến / 3D */}
+        <div className="pointer-events-auto flex items-center gap-1.5 bg-[#0B1320]/90 backdrop-blur-md p-1 rounded-full border border-amber-500/30 shadow-xl">
+          {(['satellite', 'tactical', 'heritage'] as MapStyleMode[]).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setMapMode(mode)}
+              className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all flex items-center gap-1 ${
+                mapMode === mode
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.5)]'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Layers className="w-3 h-3" />
+              <span>{MAP_STYLES[mode].name}</span>
+            </button>
+          ))}
 
-          {/* Explorer Avatar (Nhân vật Nhà Khám Phá đeo balo) */}
-          <div className="relative w-12 h-12 rounded-full bg-gradient-to-b from-[#1E3A5F] via-[#102035] to-[#0A1424] border-2 border-[#D4AF37] shadow-[0_0_20px_rgba(212,175,55,0.7)] flex items-center justify-center">
-            {/* Illustrated 2.5D Backpack Explorer Silhouette */}
-            <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
-              {/* Explorer Hat */}
-              <ellipse cx="20" cy="11" rx="9" ry="3" fill="#D4AF37" />
-              <path d="M14 11 C14 7 26 7 26 11 Z" fill="#996515" />
-              {/* Head */}
-              <circle cx="20" cy="15" r="4" fill="#FFE082" />
-              {/* Body Coat */}
-              <path d="M13 20 L27 20 L25 32 L15 32 Z" fill="#1E3A5F" />
-              {/* Backpack on shoulder */}
-              <rect x="23" y="19" width="6" height="9" rx="2" fill="#D9A05B" stroke="#996515" strokeWidth="1" />
-              {/* Legs */}
-              <line x1="17" y1="32" x2="17" y2="38" stroke="#FFE082" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="23" y1="32" x2="23" y2="38" stroke="#FFE082" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
+          <div className="h-4 w-[1px] bg-slate-700 mx-0.5" />
 
-            {/* Glowing Golden Center Aura */}
-            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border border-slate-900" />
-          </div>
-
-          {/* User Tag */}
-          <div className="absolute top-12 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-[#162A45]/95 border border-[#D4AF37]/60 shadow text-[9px] font-bold text-amber-200 whitespace-nowrap">
-            Vị trí của bạn
-          </div>
+          <button
+            onClick={() => setIs3DTilt(!is3DTilt)}
+            className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-all flex items-center gap-1 ${
+              is3DTilt
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50'
+                : 'text-slate-300 hover:text-white'
+            }`}
+            title="Bật/Tắt góc nghiêng sa bàn 3D"
+          >
+            <Compass className="w-3 h-3" />
+            <span>3D Sa Bàn</span>
+          </button>
         </div>
       </div>
 
-      {/* FLOATING MAP TACTICAL CONTROLS (Zoom +, Zoom -, Center User) */}
-      <div className="absolute right-3 bottom-24 z-20 flex flex-col gap-1.5 pointer-events-auto">
+      {/* Floating Center Map Button */}
+      <div className="absolute right-4 bottom-16 z-[500] pointer-events-auto">
         <button
-          onClick={zoomIn}
-          className="w-8 h-8 rounded-xl bg-[#0F1B2E]/90 border border-[#D4AF37]/50 text-amber-200 flex items-center justify-center hover:bg-[#D4AF37] hover:text-slate-950 transition-all shadow-lg active:scale-95"
-          title="Phóng to bản đồ"
+          onClick={handleRecenter}
+          className="w-10 h-10 rounded-2xl bg-[#0B1422]/90 border border-amber-500/40 text-amber-300 flex items-center justify-center shadow-xl backdrop-blur-md hover:border-amber-400 active:scale-95 transition-all"
+          title="Đưa tâm bản đồ về vị trí người chơi"
         >
-          <Plus className="w-4 h-4" />
-        </button>
-        <button
-          onClick={zoomOut}
-          className="w-8 h-8 rounded-xl bg-[#0F1B2E]/90 border border-[#D4AF37]/50 text-amber-200 flex items-center justify-center hover:bg-[#D4AF37] hover:text-slate-950 transition-all shadow-lg active:scale-95"
-          title="Thu nhỏ bản đồ"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
-        <button
-          onClick={centerOnUser}
-          className="w-8 h-8 rounded-xl bg-[#162A45] border border-emerald-400 text-emerald-400 flex items-center justify-center hover:bg-emerald-500 hover:text-slate-950 transition-all shadow-lg active:scale-95"
-          title="Định vị tâm vị trí bạn"
-        >
-          <LocateFixed className="w-4 h-4" />
+          <LocateFixed className="w-5 h-5" />
         </button>
       </div>
+
+      {/* HUD Trạng thái Radar & Tọa độ Thời gian thực (Góc dưới trái) */}
+      <div className="pointer-events-none absolute bottom-4 left-4 z-[500] flex items-center gap-2.5 bg-[#0B1320]/85 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-amber-500/25 text-[11px] text-slate-300">
+        <span className="flex items-center gap-1 text-emerald-400 font-medium">
+          <Radio className="w-3 h-3 animate-pulse" />
+          VỆ TINH ĐÃ KẾT NỐI
+        </span>
+        <span className="text-slate-600">|</span>
+        <span className="font-mono text-amber-300/90 text-[10px]">
+          LAT: {cursorCoords.lat}° N — LNG: {cursorCoords.lng}° E
+        </span>
+        <span className="text-slate-600">|</span>
+        <span>{filteredLocations.length} Điểm Di Sản</span>
+      </div>
+
+      {/* Thẻ Chi Tiết Thực Địa Nổi (Hiện ra khi click vào một di tích) */}
+      {activeLoc && (
+        <div className="absolute bottom-5 right-5 z-[500] w-96 max-w-[calc(100vw-40px)] rounded-3xl bg-[#0B1320]/95 backdrop-blur-xl border-2 border-amber-500/50 shadow-[0_15px_45px_rgba(0,0,0,0.85)] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {activeLoc.imageUrl && (
+            <div className="relative h-36 w-full bg-slate-900 overflow-hidden">
+              <img
+                src={activeLoc.imageUrl}
+                alt={activeLoc.name}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0B1320] via-black/20 to-black/40" />
+              <button
+                onClick={() => setActiveLoc(null)}
+                className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black text-xs font-bold transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <div className="p-4 border-b border-amber-500/20 flex items-start justify-between gap-2 bg-gradient-to-r from-amber-500/10 to-transparent">
+            <div>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30 mb-1.5">
+                <Sparkles className="w-3 h-3" />
+                {activeLoc.rarity ? activeLoc.rarity.toUpperCase() : 'DI TÍCH QUỐC GIA'}
+              </span>
+              <h3 className="text-base font-bold text-white leading-snug">
+                {activeLoc.name}
+              </h3>
+              {activeLoc.address && (
+                <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-amber-400/70 shrink-0" />
+                  <span className="truncate">{activeLoc.address}</span>
+                </p>
+              )}
+            </div>
+            {!activeLoc.imageUrl && (
+              <button
+                onClick={() => setActiveLoc(null)}
+                className="text-slate-400 hover:text-white text-xs px-2 py-0.5 rounded bg-white/5"
+              >
+                ✕ Đóng
+              </button>
+            )}
+          </div>
+
+          <div className="p-4 space-y-3">
+            <p className="text-xs text-slate-300 line-clamp-3 leading-relaxed">
+              {activeLoc.historicalSummary ||
+                (activeLoc as any).description ||
+                'Địa danh lịch sử gắn liền với những ký ức hào hùng của dân tộc. Hãy dịch chuyển tới thực địa để mở khóa thước phim nhân chứng và giải mã câu chuyện.'}
+            </p>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => {
+                  const lat = activeLoc.coordinates?.lat ?? (activeLoc as any).lat;
+                  const lng = activeLoc.coordinates?.lng ?? (activeLoc as any).lng;
+                  if (lat && lng) {
+                    if (setUserLocation) setUserLocation({ lat, lng });
+                    if (setGpsCoordinates) setGpsCoordinates({ lat, lng });
+                  }
+                  if (setSelectedLocation) {
+                    setSelectedLocation(activeLoc);
+                  }
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.4)] hover:brightness-110 active:scale-95 transition"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Dịch Chuyển & Khám Phá</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+
+              {startArNavigation && (
+                <button
+                  onClick={() => startArNavigation(activeLoc)}
+                  className="py-2.5 px-3.5 rounded-xl bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-bold hover:border-amber-400 hover:bg-amber-500/10 active:scale-95 transition flex items-center gap-1.5"
+                  title="Dẫn đường AR"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>AR</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+}
+
+export default TacticalHeritageMap;

@@ -37,9 +37,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`${beVietnam.variable} ${cinzel.variable}`}>
-      <body className="bg-[#05080E] text-slate-100 min-h-screen antialiased overflow-hidden">
-        <AppProvider>{children}</AppProvider>
+    <html lang="vi" className={`${beVietnam.variable} ${cinzel.variable}`} suppressHydrationWarning>
+      <body suppressHydrationWarning>
+        <div className="bg-[#05080E] text-slate-100 min-h-screen antialiased overflow-hidden">
+          <AppProvider>{children}</AppProvider>
+        </div>
       </body>
     </html>
   );

@@ -21,7 +21,9 @@ import {
   Radio,
   MapPin,
   ChevronDown,
+  Camera,
 } from 'lucide-react';
+import { ARNavigationView } from './ARNavigationView';
 
 export const RadarScanner: React.FC = () => {
   const {
@@ -30,6 +32,10 @@ export const RadarScanner: React.FC = () => {
     setSelectedLocation,
     getLocationProximity,
     currentGps,
+    isArModeActive,
+    arTargetLocation,
+    startArNavigation,
+    stopArNavigation,
   } = useApp();
 
   // Filters State
@@ -129,19 +135,31 @@ export const RadarScanner: React.FC = () => {
               }`}
             >
               <Map className="w-3 h-3" />
-              <span>Sa Bàn 2.5D</span>
+              <span>Bản Đồ 3D (GO)</span>
             </button>
 
             <button
               onClick={() => setMapMode('radar')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all ${
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all ${
                 mapMode === 'radar'
                   ? 'bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-slate-950 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <Compass className="w-3 h-3" />
-              <span>Radar 360°</span>
+              <span>Radar</span>
+            </button>
+
+            <button
+              onClick={() => {
+                const target = selectedLocation || filteredLocations[0];
+                if (target) startArNavigation(target);
+              }}
+              className="px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all text-amber-300 hover:text-white bg-amber-950/60 border border-amber-500/40 hover:border-amber-400"
+              title="Kích hoạt Camera AR Thực Địa Dẫn Đường"
+            >
+              <Camera className="w-3 h-3 text-[#D4AF37]" />
+              <span>Quét AR</span>
             </button>
           </div>
         </div>
@@ -318,6 +336,15 @@ export const RadarScanner: React.FC = () => {
         location={selectedLocation}
         onClose={() => setSelectedLocation(null)}
       />
+
+      {/* FULLSCREEN AR NAVIGATION OVERLAY (MÀN HÌNH AR THỰC ĐỊA 60/40) */}
+      {isArModeActive && arTargetLocation && (
+        <ARNavigationView
+          targetLocation={arTargetLocation}
+          onClose={stopArNavigation}
+          onOpenLocationDetail={(loc) => setSelectedLocation(loc)}
+        />
+      )}
     </div>
   );
 };

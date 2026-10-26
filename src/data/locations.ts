@@ -399,3 +399,173 @@ export const MOCK_LOCATIONS: HistoricalLocation[] = [
   },
 ];
 
+export const NATIONAL_CAMPAIGN_LOCATIONS: HistoricalLocation[] = [
+  {
+    id: 'hoang-thanh-thang-long',
+    name: 'Hoàng Thành Thăng Long - Hầm Chỉ Huy Tác Chiến T1',
+    subtitle: 'Di tích Quốc gia Đặc biệt · Trung tâm Hoàng thành Thăng Long',
+    categoryTitle: 'Chiến trường & Căn cứ Tác chiến',
+    category: 'battlefield',
+    rarity: 'legendary',
+    contentType: 'battlefield',
+    region: 'Hà Nội',
+    campaign: 'Hào Khí Thăng Long',
+    address: '19C Hoàng Diệu, Quán Thánh, Ba Đình, Hà Nội',
+    coordinates: { lat: 21.0341, lng: 105.8401 },
+    discoveryRadius: 15,
+    interactionRadius: 100,
+    historicalPeriod: 'Điện Biên Phủ trên không (12/1972)',
+    yearEstablished: '1010',
+    imageUrl: 'https://images.unsplash.com/photo-1599707367072-cd6ada2bc375?auto=format&fit=crop&w=1000&q=80',
+    historicalSummary:
+      'Nơi hội tụ hơn 1.000 năm lịch sử dân tộc và là căn hầm chỉ huy tối mật của Bộ Tổng Tư lệnh trong suốt 12 ngày đêm Điện Biên Phủ trên không năm 1972.',
+    description:
+      'Nơi hội tụ hơn 1.000 năm lịch sử dân tộc và là căn hầm chỉ huy tối mật của Bộ Tổng Tư lệnh trong suốt 12 ngày đêm Điện Biên Phủ trên không năm 1972.',
+    fullDescription:
+      'Căn hầm T1 được xây dựng từ năm 1967 dưới lòng đất Hoàng thành Thăng Long, bảo đảm an toàn trước bom đạn hạng nặng. Từ căn hầm này, Đại tướng Võ Nguyên Giáp và Bộ chỉ huy đã phát đi những mệnh lệnh lịch sử đánh bại cuộc tập kích chiến lược B-52 của không quân Mỹ.',
+    witnessStory: {
+      id: 'witness-hoang-thanh-thang-long',
+      title: 'Ký ức 12 ngày đêm Điện Biên Phủ trên không',
+      duration: '04:30',
+      speakerName: 'Đại tá Nguyễn Văn Khả',
+      speakerRole: 'Sĩ quan trực ban tại Hầm T1 tháng 12/1972',
+      witnessName: 'Đại tá Nguyễn Văn Khả - Nguyên Cán bộ Cục Tác chiến',
+      role: 'Sĩ quan trực ban tại Hầm T1 tháng 12/1972',
+      quote:
+        'Dưới lớp bê tông dày hàng mét giữa lòng Hoàng Thành cổ kính, tiếng chuông điện thoại nóng từ các trận địa tên lửa phòng không dội về dồn dập. Khi chiếc B-52 đầu tiên bốc cháy trên bầu trời Hà Nội đêm 18/12, cả căn hầm tác chiến như vỡ òa.',
+      fullStory:
+        'Trong suốt 12 ngày đêm, căn hầm không ngủ. Mọi diễn biến trên bầu trời miền Bắc đều được vẽ trực tiếp lên tấm bản đồ tác chiến lớn. Từng đường bay của pháo đài bay B-52 đều bị theo dõi sát sao.',
+      historicalSource: 'Trung tâm Bảo tồn Di sản Thăng Long - Hà Nội',
+    },
+    storyChallengeIds: [],
+    rewardExp: 600,
+    tags: ['Hà Nội', 'Hoàng Thành', 'Hầm T1', 'Điện Biên Phủ trên không', '1972'],
+  },
+  {
+    id: 'nha-tu-hoa-lo',
+    name: 'Di Tích Nhà Tù Hỏa Lò',
+    subtitle: 'Di tích Lịch sử Nhà tù Hỏa Lò (Maison Centrale)',
+    categoryTitle: 'Địa danh Ký ức & Nhân chứng',
+    category: 'witness',
+    rarity: 'rare',
+    contentType: 'witness',
+    region: 'Hà Nội',
+    campaign: 'Hào Khí Thăng Long',
+    address: 'Số 1 phố Hỏa Lò, Trần Hưng Đạo, Hoàn Kiếm, Hà Nội',
+    coordinates: { lat: 21.0253, lng: 105.8465 },
+    discoveryRadius: 10,
+    interactionRadius: 80,
+    historicalPeriod: 'Thời kỳ Kháng chiến chống Pháp (1896 - 1954)',
+    yearEstablished: '1896',
+    imageUrl: 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=1000&q=80',
+    historicalSummary:
+      'Biểu tượng cho ý chí kiên cường bất khuất của các chiến sĩ cách mạng Việt Nam giữa chốn lao tù thực dân.',
+    description:
+      'Biểu tượng cho ý chí kiên cường bất khuất của các chiến sĩ cách mạng Việt Nam giữa chốn lao tù thực dân.',
+    fullDescription:
+      'Nhà tù Hỏa Lò do thực dân Pháp xây dựng năm 1896, là một trong những nhà tù kiên cố bậc nhất Đông Dương thời bấy giờ nhằm giam giữ các chiến sĩ cách mạng yêu nước. Nơi đây đã trở thành trường học cách mạng tôi luyện ý chí kiên cường của bao thế hệ lãnh tụ tiền bối.',
+    witnessStory: {
+      id: 'witness-nha-tu-hoa-lo',
+      title: 'Cuộc vượt ngục qua cống ngầm đêm Giáng sinh 1945',
+      duration: '03:50',
+      speakerName: 'Cựu tù chính trị Hỏa Lò',
+      speakerRole: 'Nhân chứng cuộc vượt ngục qua cống ngầm đêm Giáng sinh 1945',
+      witnessName: 'Cựu tù chính trị Hỏa Lò',
+      role: 'Nhân chứng cuộc vượt ngục qua cống ngầm đêm Giáng sinh 1945',
+      quote:
+        'Trong bóng tối đặc quánh và cái lạnh cắt da của đêm tháng Chạp, từng người chúng tôi lách qua đường cống ngầm chật hẹp dưới chân tường đá. Chỉ có niềm tin về ngày độc lập mới giúp chúng tôi vượt qua cánh cửa tử thần ấy.',
+      fullStory:
+        'Đêm Giáng sinh năm 1945, lợi dụng lúc lính gác mải mê tiệc tùng, các tù chính trị đã cưa chấn song sắt miệng cống, bí mật bò qua đường cống thoát nước bốc mùi ngột ngạt để thoát ra ngoài phố Nam Ngư, trở về với phong trào cách mạng.',
+      historicalSource: 'Ban Quản lý Di tích Nhà tù Hỏa Lò',
+    },
+    storyChallengeIds: [],
+    rewardExp: 450,
+    tags: ['Hà Nội', 'Hỏa Lò', 'Tù chính trị', 'Nhân chứng'],
+  },
+  {
+    id: 'thanh-co-quang-tri',
+    name: 'Thành Cổ Quảng Trị - Mùa Hè Đỏ Lửa 1972',
+    subtitle: 'Di tích Quốc gia Đặc biệt Thành Cổ Quảng Trị',
+    categoryTitle: 'Chiến trường Lịch sử Oanh liệt',
+    category: 'battlefield',
+    rarity: 'legendary',
+    contentType: 'battlefield',
+    region: 'Quảng Trị',
+    campaign: 'Vành Đai Thép Miền Trung',
+    address: 'Phường 2, Thị xã Quảng Trị, Tỉnh Quảng Trị',
+    coordinates: { lat: 16.7505, lng: 107.1897 },
+    discoveryRadius: 25,
+    interactionRadius: 120,
+    historicalPeriod: 'Chiến dịch 81 ngày đêm mùa hè đỏ lửa 1972',
+    yearEstablished: '1809',
+    imageUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1000&q=80',
+    historicalSummary:
+      'Khúc tráng ca 81 ngày đêm mùa hè năm 1972 bảo vệ từng tấc đất Thành Cổ và dòng sông Thạch Hãn.',
+    description:
+      'Khúc tráng ca 81 ngày đêm mùa hè năm 1972 bảo vệ từng tấc đất Thành Cổ và dòng sông Thạch Hãn.',
+    fullDescription:
+      'Thành Cổ Quảng Trị là chiến trường khốc liệt nhất trong cuộc kháng chiến chống Mỹ cứu nước. Trong 81 ngày đêm mùa hè năm 1972, mảnh đất chưa đầy 3 cây số vuông này phải hứng chịu hơn 328.000 tấn bom đạn, tương đương sức công phá của 7 quả bom nguyên tử ném xuống Hiroshima.',
+    witnessStory: {
+      id: 'witness-thanh-co-quang-tri',
+      title: 'Bức thư dưới đáy ba lô và khúc tráng ca sông Thạch Hãn',
+      duration: '04:10',
+      speakerName: 'Liệt sĩ Lê Văn Huỳnh',
+      speakerRole: 'Chiến sĩ bảo vệ Thành Cổ Quảng Trị năm 1972',
+      witnessName: 'Liệt sĩ Lê Văn Huỳnh (Trích bức thư gửi gia đình)',
+      role: 'Chiến sĩ bảo vệ Thành Cổ Quảng Trị năm 1972',
+      quote:
+        'Đò lên Thạch Hãn ơi chèo nhẹ, đáy sông còn đó bạn tôi nằm. Có tuổi hai mươi thành sóng nước, vỗ yên bờ bãi mãi ngàn năm...',
+      fullStory:
+        'Những người lính tuổi mười chín, đôi mươi vượt sông Thạch Hãn vào Thành Cổ với tinh thần quyết tử cho Tổ quốc quyết sinh. Mỗi tấc đất Thành Cổ hôm nay đều thấm đượm máu xương của các anh hùng liệt sĩ.',
+      historicalSource: 'Bảo tàng Thành Cổ Quảng Trị & Di tích Quốc gia',
+    },
+    storyChallengeIds: [],
+    rewardExp: 650,
+    tags: ['Quảng Trị', 'Thành Cổ', 'Thạch Hãn', '1972', 'Khúc tráng ca'],
+  },
+  {
+    id: 'doi-a1-dien-bien-phu',
+    name: 'Đồi A1 - Chiến Trường Điện Biên Phủ',
+    subtitle: 'Cứ điểm Eliane 2 · Di tích Quốc gia Đặc biệt Chiến trường Điện Biên Phủ',
+    categoryTitle: 'Cứ điểm Chiến trường Lịch sử',
+    category: 'battlefield',
+    rarity: 'legendary',
+    contentType: 'battlefield',
+    region: 'Điện Biên',
+    campaign: 'Lừng Lẫy Năm Châu',
+    address: 'Phường Mường Thanh, Thành phố Điện Biên Phủ, Tỉnh Điện Biên',
+    coordinates: { lat: 21.3856, lng: 103.0218 },
+    discoveryRadius: 30,
+    interactionRadius: 150,
+    historicalPeriod: 'Chiến dịch Điện Biên Phủ (1954)',
+    yearEstablished: '1954',
+    imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1000&q=80',
+    historicalSummary:
+      'Cứ điểm phòng ngự kiên cố bậc nhất tại phân khu trung tâm tập đoàn cứ điểm Điện Biên Phủ, nơi diễn ra khối bộc phá 960kg lịch sử đêm 6/5/1954.',
+    description:
+      'Cứ điểm phòng ngự kiên cố bậc nhất tại phân khu trung tâm tập đoàn cứ điểm Điện Biên Phủ, nơi diễn ra khối bộc phá 960kg lịch sử đêm 6/5/1954.',
+    fullDescription:
+      'Đồi A1 (Eliane 2) có vị trí sống còn khống chế toàn bộ phân khu trung tâm Mường Thanh. Quân đội ta đã đào đường hầm bí mật dài 47m xuyên vào lòng đồi và đặt khối bộc phá 960kg thuốc nổ. Tiếng nổ long trời lở đất đêm 6/5/1954 đã báo hiệu hồi kết của tập đoàn cứ điểm Điện Biên Phủ.',
+    witnessStory: {
+      id: 'witness-doi-a1-dien-bien-phu',
+      title: 'Đường hầm bí mật và khối bộc phá 960kg',
+      duration: '04:45',
+      speakerName: 'Anh hùng Nguyễn Phú Xuyên Khung',
+      speakerRole: 'Đại đội trưởng công binh đào đường hầm Đồi A1',
+      witnessName: 'Anh hùng Nguyễn Phú Xuyên Khung',
+      role: 'Đại đội trưởng công binh đào đường hầm Đồi A1',
+      quote:
+        'Suốt 16 ngày đêm đào từng centimet đất sét cứng dưới làn đạn pháo, khi tiếng nổ trầm đục của gần một tấn thuốc nổ vang lên lúc 20 giờ 30 phút ngày 6/5/1954, chúng tôi biết giờ toàn thắng đã điểm.',
+      fullStory:
+        'Chiến sĩ công binh phải dùng xẻng ngắn, dùng mũ nan cạo đất trong đường hầm chật hẹp thiếu dưỡng khí. Mỗi tấc đất đào được là một tấc xương máu hướng tới ngày toàn thắng Điện Biên Phủ.',
+      historicalSource: 'Bảo tàng Chiến thắng Lịch sử Điện Biên Phủ',
+    },
+    storyChallengeIds: [],
+    rewardExp: 700,
+    tags: ['Điện Biên', 'Đồi A1', '1954', 'Điện Biên Phủ', 'Lừng lẫy năm châu'],
+  },
+];
+
+// Nạp thêm các di tích chiến dịch quốc gia vào danh sách mặc định
+MOCK_LOCATIONS.push(...NATIONAL_CAMPAIGN_LOCATIONS);
+

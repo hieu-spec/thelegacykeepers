@@ -1,4 +1,4 @@
-export type LocationRarity = 'common' | 'uncommon' | 'legendary' | 'event';
+export type LocationRarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'event';
 
 export type LocationContentType = 'landmark' | 'story' | 'witness' | 'battlefield' | 'culture';
 
@@ -19,6 +19,8 @@ export interface WitnessStory {
   quote: string; // Trích dẫn lời kể xúc động
   fullStory: string;
   historicalSource: string; // Nguồn tư liệu: "Bảo tàng Hồ Chí Minh", v.v.
+  witnessName?: string;
+  role?: string;
 }
 
 export interface HistoricalLocation {
@@ -41,4 +43,11 @@ export interface HistoricalLocation {
   storyChallengeIds: string[]; // Associated minigame story IDs
   rewardExp: number;
   tags: string[];
+  audioUrl?: string;
+  region?: string;
+  campaign?: string;
+  description?: string;
+  category?: string;
 }
+
+export type HeritageLocation = HistoricalLocation;

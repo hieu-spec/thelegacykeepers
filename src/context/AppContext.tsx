@@ -5,10 +5,12 @@ import { Coordinates, HistoricalLocation, WitnessStory } from '@/types/location'
 import { HistoricalStory } from '@/types/story';
 import { Badge } from '@/types/badge';
 import { UserProfile } from '@/types/user';
+import { AccountProfile, VeteranProfile, CustomLocationPin } from '@/types/system';
 import { MOCK_LOCATIONS } from '@/data/locations';
 import { MOCK_STORIES } from '@/data/stories';
 import { MOCK_BADGES } from '@/data/badges';
 import { INITIAL_USER_PROFILE } from '@/data/initialUser';
+import { INITIAL_ACCOUNTS, INITIAL_VETERANS, SYSTEM_TITLES } from '@/data/accounts';
 import { calculateDistanceMeters, formatDistance, calculateBearing } from '@/utils/geo';
 
 export type AppTab = 'minigame' | 'radar' | 'profile';
@@ -77,20 +79,55 @@ export const GPS_PRESETS: GpsPreset[] = [
     targetLocationId: 'dia-dao-cu-chi',
     expectedState: 'connected',
   },
+  {
+    id: 'preset-hoang-thanh-thang-long',
+    label: 'Hoàng Thành Thăng Long (Hà Nội)',
+    subtitle: 'Hầm Chỉ Huy Tác Chiến T1 · 12 ngày đêm Điện Biên Phủ trên không',
+    coordinates: { lat: 21.0341, lng: 105.8401 },
+    targetLocationId: 'hoang-thanh-thang-long',
+    expectedState: 'connected',
+  },
+  {
+    id: 'preset-thanh-co-quang-tri',
+    label: 'Thành Cổ Quảng Trị (Quảng Trị)',
+    subtitle: 'Khúc tráng ca 81 ngày đêm mùa hè đỏ lửa 1972 & sông Thạch Hãn',
+    coordinates: { lat: 16.7505, lng: 107.1897 },
+    targetLocationId: 'thanh-co-quang-tri',
+    expectedState: 'connected',
+  },
+  {
+    id: 'preset-doi-a1-dien-bien-phu',
+    label: 'Đồi A1 - Điện Biên Phủ (Điện Biên)',
+    subtitle: 'Khối bộc phá 960kg & Chiến dịch lịch sử Điện Biên Phủ 1954',
+    coordinates: { lat: 21.3856, lng: 103.0218 },
+    targetLocationId: 'doi-a1-dien-bien-phu',
+    expectedState: 'connected',
+  },
 ];
 
 interface AppContextType {
   currentTab: AppTab;
   setCurrentTab: (tab: AppTab) => void;
 
-  // GPS Simulation
+  // GPS Simulation & Movement
   currentGps: Coordinates;
+  userLocation: Coordinates;
   currentGpsPreset: GpsPreset;
   teleportToPreset: (preset: GpsPreset) => void;
   offsetGps: (deltaLat: number, deltaLng: number) => void;
+  setGpsCoordinates: (coords: Coordinates) => void;
+  setUserLocation: (coords: Coordinates) => void;
+  playerHeading: number;
+  setPlayerHeading: (heading: number) => void;
+  isPlayerMoving: boolean;
+  setIsPlayerMoving: (moving: boolean) => void;
 
   // Locations & Selection
   locations: HistoricalLocation[];
+  setLocations: React.Dispatch<React.SetStateAction<HistoricalLocation[]>>;
+  addOrUpdateLocation: (location: HistoricalLocation) => void;
+  removeLocation: (id: string) => void;
+  reloadLocationsFromApi: () => Promise<void>;
   selectedLocation: HistoricalLocation | null;
   setSelectedLocation: (loc: HistoricalLocation | null) => void;
   getLocationProximity: (location: HistoricalLocation) => LocationProximity;
@@ -122,6 +159,16 @@ interface AppContextType {
   showToast: (title: string, description: string, type?: 'gold' | 'cinnabar' | 'emerald') => void;
   hideToast: () => void;
 
+  // AR Navigation (Mobile Field Experience)
+  isArModeActive: boolean;
+  arTargetLocation: HistoricalLocation | null;
+  startArNavigation: (location: HistoricalLocation) => void;
+  stopArNavigation: () => void;
+
+  // Desktop Responsive Layout Mode
+  desktopViewMode: 'dashboard' | 'mobile_simulator';
+  setDesktopViewMode: (mode: 'dashboard' | 'mobile_simulator') => void;
+
   // Dev GPS controller toggle
   isGpsControllerOpen: boolean;
   setIsGpsControllerOpen: (open: boolean) => void;
@@ -131,6 +178,44 @@ interface AppContextType {
   login: (email?: string, password?: string) => void;
   logout: () => void;
   loginAsDemoUser: () => void;
+
+  // RBAC & Accounts System (1 Admin + 5 Users)
+  currentAccount: AccountProfile;
+  setCurrentAccount: React.Dispatch<React.SetStateAction<AccountProfile>>;
+  allAccounts: AccountProfile[];
+  loginAsAccount: (account: AccountProfile) => void;
+
+  // Veterans & Living Memory
+  veterans: VeteranProfile[];
+  setVeterans: React.Dispatch<React.SetStateAction<VeteranProfile[]>>;
+  visitedVeteranIds: string[];
+  visitVeteran: (veteranId: string, tributeMessage?: string) => void;
+  onPlayVeteranAudio: (veteran: VeteranProfile) => void;
+
+  // Audio Override / Direct Play
+  activeAudioOverride: {
+    title: string;
+    speaker?: string;
+    textScript: string;
+    uploadedAudioUrl?: string;
+  } | null;
+  setActiveAudioOverride: (
+    audio: {
+      title: string;
+      speaker?: string;
+      textScript: string;
+      uploadedAudioUrl?: string;
+    } | null
+  ) => void;
+
+  // Campaigns
+  completedCampaignIds: string[];
+  completeCampaign: (campaignId: string) => void;
+
+  // Admin Custom Pin Management
+  saveCustomPin: (pin: CustomLocationPin) => void;
+  deleteCustomPin: (id: string) => void;
+  saveVeteranProfile: (vet: VeteranProfile) => void;
 
   // Settings & Customization
   language: string;
@@ -162,7 +247,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [profileSubScreen, setProfileSubScreen] = useState<ProfileSubScreen>('main');
   const [currentGpsPreset, setCurrentGpsPreset] = useState<GpsPreset>(GPS_PRESETS[0]);
   const [currentGps, setCurrentGps] = useState<Coordinates>(GPS_PRESETS[0].coordinates);
-  const [locations] = useState<HistoricalLocation[]>(MOCK_LOCATIONS);
+  const [playerHeading, setPlayerHeading] = useState<number>(0);
+  const [isPlayerMoving, setIsPlayerMoving] = useState<boolean>(false);
+  const [locations, setLocations] = useState<HistoricalLocation[]>(MOCK_LOCATIONS);
   const [selectedLocation, setSelectedLocation] = useState<HistoricalLocation | null>(null);
   const [stories, setStories] = useState<HistoricalStory[]>(MOCK_STORIES);
   const [badges, setBadges] = useState<Badge[]>(MOCK_BADGES);
@@ -173,8 +260,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
   const [toast, setToast] = useState<ToastData | null>(null);
   const [isGpsControllerOpen, setIsGpsControllerOpen] = useState<boolean>(false);
+  const [isArModeActive, setIsArModeActive] = useState<boolean>(false);
+  const [arTargetLocation, setArTargetLocation] = useState<HistoricalLocation | null>(null);
+  const [desktopViewMode, setDesktopViewMode] = useState<'dashboard' | 'mobile_simulator'>('dashboard');
 
-  // Authentication & Preferences
+  // Authentication & RBAC Accounts (1 Admin + 5 Users)
+  const [allAccounts, setAllAccounts] = useState<AccountProfile[]>(INITIAL_ACCOUNTS);
+  const [currentAccount, setCurrentAccount] = useState<AccountProfile>(INITIAL_ACCOUNTS[0]);
+  const [veterans, setVeterans] = useState<VeteranProfile[]>(INITIAL_VETERANS);
+  const [activeAudioOverride, setActiveAudioOverride] = useState<{
+    title: string;
+    speaker?: string;
+    textScript: string;
+    uploadedAudioUrl?: string;
+  } | null>(null);
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
   const [language, setLanguage] = useState<string>('🇻🇳 Tiếng Việt');
   const [preferences, setPreferences] = useState<{
@@ -209,10 +309,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setToast(null);
   }, []);
 
-  const login = useCallback((email?: string, password?: string) => {
-    setIsAuthenticated(true);
-    showToast('Đăng nhập thành công!', `Chào mừng trở lại, ${userProfile.displayName || userProfile.name}!`, 'emerald');
-  }, [userProfile, showToast]);
+  const loginAsAccount = useCallback(
+    (account: AccountProfile) => {
+      setCurrentAccount(account);
+      setIsAuthenticated(true);
+      setUserProfile((prev) => ({
+        ...prev,
+        name: account.displayName,
+        displayName: account.displayName,
+        avatarUrl: account.avatarUrl,
+        currentExp: account.exp,
+        maxExp: account.maxExp,
+        level: account.level,
+      }));
+      showToast(
+        `Đã đăng nhập: ${account.displayName}`,
+        `Vai trò: ${account.role === 'ADMIN' ? 'Tổng Chỉ Huy (ADMIN CMS)' : 'Nhà Gìn Giữ Di Sản'}`,
+        account.role === 'ADMIN' ? 'gold' : 'emerald'
+      );
+    },
+    [showToast]
+  );
+
+  const login = useCallback(
+    (email?: string, password?: string) => {
+      setIsAuthenticated(true);
+      showToast('Đăng nhập thành công!', `Chào mừng trở lại, ${currentAccount.displayName}!`, 'emerald');
+    },
+    [currentAccount, showToast]
+  );
 
   const logout = useCallback(() => {
     setIsAuthenticated(false);
@@ -221,9 +346,154 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [showToast]);
 
   const loginAsDemoUser = useCallback(() => {
-    setIsAuthenticated(true);
-    showToast('Đăng nhập nhanh', 'Chào mừng Nhà Khám Phá trở lại với The Legacy Keepers!', 'gold');
-  }, [showToast]);
+    loginAsAccount(INITIAL_ACCOUNTS[1]); // Lê Toàn Hiếu
+  }, [loginAsAccount]);
+
+  const visitVeteran = useCallback(
+    (veteranId: string, tributeMessage?: string) => {
+      setVeterans((prevVets) =>
+        prevVets.map((v) => {
+          if (v.id === veteranId) {
+            const updatedTributes = tributeMessage
+              ? [
+                  {
+                    user: currentAccount.displayName,
+                    message: tributeMessage,
+                    date: new Date().toLocaleDateString('vi-VN'),
+                  },
+                  ...v.tributes,
+                ]
+              : v.tributes;
+            return {
+              ...v,
+              tributeCount: v.tributeCount + 1,
+              tributes: updatedTributes,
+            };
+          }
+          return v;
+        })
+      );
+
+      setCurrentAccount((prev) => {
+        const newVisited = prev.visitedVeteranIds.includes(veteranId)
+          ? prev.visitedVeteranIds
+          : [...prev.visitedVeteranIds, veteranId];
+        const newExp = prev.exp + 300;
+        const unlockedTitles = prev.unlockedTitleIds.includes('title_gratitude')
+          ? prev.unlockedTitleIds
+          : [...prev.unlockedTitleIds, 'title_gratitude'];
+        return {
+          ...prev,
+          visitedVeteranIds: newVisited,
+          exp: newExp,
+          unlockedTitleIds: unlockedTitles,
+        };
+      });
+
+      showToast(
+        'Tri ân Cựu Chiến Binh thành công!',
+        'Bạn nhận được +300 EXP và mở khóa danh hiệu: ★ Người Cháu Tri Ân',
+        'emerald'
+      );
+    },
+    [currentAccount.displayName, showToast]
+  );
+
+  const onPlayVeteranAudio = useCallback((veteran: VeteranProfile) => {
+    setActiveAudioOverride({
+      title: `Hồi ký ${veteran.fullName}`,
+      speaker: veteran.rankAndRole,
+      textScript: veteran.biography,
+      uploadedAudioUrl: veteran.audioUrl,
+    });
+  }, []);
+
+  const completeCampaign = useCallback(
+    (campaignId: string) => {
+      setCurrentAccount((prev) => {
+        if (prev.completedCampaignIds.includes(campaignId)) return prev;
+        return {
+          ...prev,
+          completedCampaignIds: [...prev.completedCampaignIds, campaignId],
+          exp: prev.exp + 500,
+        };
+      });
+      showToast('Chiến dịch hoàn tất!', 'Nhận +500 EXP và mộc vinh danh lịch sử!', 'gold');
+    },
+    [showToast]
+  );
+
+  const saveCustomPin = useCallback(
+    (pin: CustomLocationPin) => {
+      const mappedLocation: HistoricalLocation = {
+        id: pin.id,
+        name: pin.name,
+        subtitle: pin.address,
+        categoryTitle: pin.pinType,
+        address: pin.address,
+        coordinates: pin.coordinates,
+        rarity: pin.rarity,
+        contentType: pin.pinType === 'story' ? 'landmark' : pin.pinType,
+        discoveryRadius: 5.0,
+        interactionRadius: 50,
+        historicalPeriod: 'Lịch sử Việt Nam',
+        yearEstablished: '1975',
+        imageUrl: pin.imageUrl || 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=800',
+        historicalSummary: pin.content,
+        fullDescription: pin.content,
+        audioUrl: pin.audioUrl,
+        witnessStory: {
+          id: `witness-${pin.id}`,
+          title: pin.name,
+          duration: '03:00',
+          speakerName: 'Nhân chứng Lịch sử',
+          speakerRole: pin.pinType,
+          quote: pin.content.slice(0, 100),
+          fullStory: pin.content,
+          historicalSource: 'Tư liệu Quốc gia',
+          audioUrl: pin.audioUrl,
+        },
+        storyChallengeIds: [pin.gameLink],
+        rewardExp: pin.rarity === 'legendary' ? 500 : pin.rarity === 'rare' ? 300 : 150,
+        tags: [pin.pinType, pin.rarity],
+      };
+      setLocations((prev) => {
+        const idx = prev.findIndex((l) => l.id === mappedLocation.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = mappedLocation;
+          return copy;
+        }
+        return [mappedLocation, ...prev];
+      });
+      showToast('Đã lưu Pin Di tích!', `Địa danh "${pin.name}" đã cập nhật lên Bản Đồ Tác Chiến.`, 'emerald');
+    },
+    [showToast]
+  );
+
+  const deleteCustomPin = useCallback(
+    (id: string) => {
+      setLocations((prev) => prev.filter((l) => l.id !== id));
+      showToast('Đã xóa Pin!', `Địa danh đã được gỡ khỏi bản đồ.`, 'cinnabar');
+    },
+    [showToast]
+  );
+
+  const saveVeteranProfile = useCallback(
+    (vet: VeteranProfile) => {
+      setVeterans((prev) => {
+        const idx = prev.findIndex((v) => v.id === vet.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = vet;
+          return copy;
+        }
+        return [vet, ...prev];
+      });
+      showToast('Đã lưu hồ sơ Cựu chiến binh!', `Hồ sơ ${vet.fullName} đã được cập nhật thành công.`, 'emerald');
+    },
+    [showToast]
+  );
 
   const teleportToPreset = useCallback(
     (preset: GpsPreset) => {
@@ -239,6 +509,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const next = { lat: prev.lat + deltaLat, lng: prev.lng + deltaLng };
       return next;
     });
+  }, []);
+
+  const setGpsCoordinates = useCallback((coords: Coordinates) => {
+    setCurrentGps(coords);
   }, []);
 
   const getLocationProximity = useCallback(
@@ -259,6 +533,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [currentGps]
   );
 
+  const addOrUpdateLocation = useCallback((location: HistoricalLocation) => {
+    setLocations((prev) => {
+      const idx = prev.findIndex((l) => l.id === location.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = location;
+        return copy;
+      }
+      return [location, ...prev];
+    });
+  }, []);
+
+  const removeLocation = useCallback((id: string) => {
+    setLocations((prev) => prev.filter((l) => l.id !== id));
+  }, []);
+
+  const reloadLocationsFromApi = useCallback(async () => {
+    try {
+      const res = await fetch('/api/locations');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.locations)) {
+        setLocations(data.locations);
+      }
+    } catch (e) {
+      console.error('Không thể nạp lại địa danh từ API:', e);
+    }
+  }, []);
+
   const togglePlayAudio = useCallback((witness?: WitnessStory) => {
     if (witness) {
       setActiveAudioWitness(witness);
@@ -270,6 +572,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const stopAudio = useCallback(() => {
     setIsPlayingAudio(false);
+  }, []);
+
+  const startArNavigation = useCallback((location: HistoricalLocation) => {
+    setArTargetLocation(location);
+    setIsArModeActive(true);
+  }, []);
+
+  const stopArNavigation = useCallback(() => {
+    setIsArModeActive(false);
   }, []);
 
   const visitLocation = useCallback(
@@ -398,10 +709,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       profileSubScreen,
       setProfileSubScreen,
       currentGps,
+      userLocation: currentGps,
       currentGpsPreset,
       teleportToPreset,
       offsetGps,
+      setGpsCoordinates,
+      setUserLocation: setGpsCoordinates,
+      playerHeading,
+      setPlayerHeading,
+      isPlayerMoving,
+      setIsPlayerMoving,
       locations,
+      setLocations,
+      addOrUpdateLocation,
+      removeLocation,
+      reloadLocationsFromApi,
       selectedLocation,
       setSelectedLocation,
       getLocationProximity,
@@ -422,12 +744,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toast,
       showToast,
       hideToast,
+      isArModeActive,
+      arTargetLocation,
+      startArNavigation,
+      stopArNavigation,
+      desktopViewMode,
+      setDesktopViewMode,
       isGpsControllerOpen,
       setIsGpsControllerOpen,
       isAuthenticated,
       login,
       logout,
       loginAsDemoUser,
+      currentAccount,
+      setCurrentAccount,
+      allAccounts,
+      loginAsAccount,
+      veterans,
+      setVeterans,
+      visitedVeteranIds: currentAccount.visitedVeteranIds,
+      visitVeteran,
+      onPlayVeteranAudio,
+      activeAudioOverride,
+      setActiveAudioOverride,
+      completedCampaignIds: currentAccount.completedCampaignIds,
+      completeCampaign,
+      saveCustomPin,
+      deleteCustomPin,
+      saveVeteranProfile,
       language,
       setLanguage,
       preferences,
@@ -440,7 +784,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currentGpsPreset,
       teleportToPreset,
       offsetGps,
+      setGpsCoordinates,
+      playerHeading,
+      setPlayerHeading,
+      isPlayerMoving,
+      setIsPlayerMoving,
       locations,
+      addOrUpdateLocation,
+      removeLocation,
+      reloadLocationsFromApi,
       selectedLocation,
       getLocationProximity,
       stories,
@@ -458,11 +810,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toast,
       showToast,
       hideToast,
+      isArModeActive,
+      arTargetLocation,
+      startArNavigation,
+      stopArNavigation,
+      desktopViewMode,
       isGpsControllerOpen,
       isAuthenticated,
       login,
       logout,
       loginAsDemoUser,
+      currentAccount,
+      allAccounts,
+      loginAsAccount,
+      veterans,
+      visitVeteran,
+      onPlayVeteranAudio,
+      activeAudioOverride,
+      completeCampaign,
+      saveCustomPin,
+      deleteCustomPin,
+      saveVeteranProfile,
       language,
       preferences,
       updatePreferences,

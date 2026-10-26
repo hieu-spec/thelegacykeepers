@@ -137,3 +137,111 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* ========================================================
+   POKÉMON GO STYLE 3D MAP & CHARACTER ANIMATIONS
+   ======================================================== */
+@keyframes player-walk-bob {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-5px) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-1px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-5px) rotate(3deg);
+  }
+}
+
+@keyframes player-idle-breathe {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.02);
+  }
+}
+
+@keyframes pokemon-radar-pulse {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.9;
+    border-width: 3px;
+  }
+  50% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+    border-width: 1px;
+  }
+}
+
+@keyframes beacon-pillar {
+  0%, 100% {
+    opacity: 0.75;
+    transform: scaleX(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1.35);
+  }
+}
+
+@keyframes floating-pin {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-player-walk {
+  animation: player-walk-bob 0.55s ease-in-out infinite;
+}
+
+.animate-player-idle {
+  animation: player-idle-breathe 2.4s ease-in-out infinite;
+}
+
+.animate-pokemon-radar {
+  animation: pokemon-radar-pulse 2.2s cubic-bezier(0.1, 0.7, 0.1, 1) infinite;
+}
+
+.animate-beacon-pillar {
+  animation: beacon-pillar 2s ease-in-out infinite;
+}
+
+.animate-floating-pin {
+  animation: floating-pin 2.5s ease-in-out infinite;
+}
+
+/* MapLibre GL Tactical Customization */
+.maplibregl-map {
+  width: 100%;
+  height: 100%;
+  position: absolute !important;
+  inset: 0;
+}
+
+.maplibregl-canvas-container {
+  width: 100%;
+  height: 100%;
+}
+
+.maplibregl-canvas {
+  outline: none;
+}
+
+.maplibregl-ctrl-attrib {
+  display: none !important;
+}
+
+.maplibregl-ctrl-logo {
+  display: none !important;
+}

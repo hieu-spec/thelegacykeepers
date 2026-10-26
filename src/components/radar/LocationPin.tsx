@@ -55,6 +55,14 @@ export const LocationPin: React.FC<LocationPinProps> = ({
       badgeBg: 'bg-red-950/80 border-red-500 text-red-200',
       icon: Flag,
     },
+    rare: {
+      border: 'border-[#EF4444]',
+      bg: 'bg-gradient-to-br from-[#DC2626] to-[#991B1B]',
+      shadow: 'shadow-[0_0_18px_rgba(239,68,68,0.8)]',
+      text: 'text-white',
+      badgeBg: 'bg-red-950/80 border-red-500 text-red-200',
+      icon: Flag,
+    },
     uncommon: {
       border: 'border-[#38BDF8]',
       bg: 'bg-gradient-to-br from-[#0284C7] to-[#0369A1]',
@@ -71,7 +79,14 @@ export const LocationPin: React.FC<LocationPinProps> = ({
       badgeBg: 'bg-emerald-950/80 border-emerald-400 text-emerald-200',
       icon: Landmark,
     },
-  }[location.rarity];
+  }[location.rarity] || {
+    border: 'border-[#10B981]',
+    bg: 'bg-gradient-to-br from-[#059669] to-[#047857]',
+    shadow: 'shadow-[0_0_12px_rgba(16,185,129,0.5)]',
+    text: 'text-white',
+    badgeBg: 'bg-emerald-950/80 border-emerald-400 text-emerald-200',
+    icon: Landmark,
+  };
 
   const IconComponent = rarityConfig.icon;
 
@@ -116,15 +131,19 @@ export const LocationPin: React.FC<LocationPinProps> = ({
           )}
         </motion.div>
 
-        {/* Floating Mini Badge with Distance */}
+        {/* Floating Mini Badge with Name & Distance: Smart anti-overlap hover */}
         <div
-          className={`mt-1 px-1.5 py-0.5 rounded-full border text-[9px] font-bold tracking-tight whitespace-nowrap shadow-md backdrop-blur-md transition-all ${
+          className={`mt-1 px-2 py-0.5 rounded-full border text-[9px] font-bold tracking-tight whitespace-nowrap shadow-md backdrop-blur-md transition-all duration-200 ${
             proximity.inInteractionRadius
               ? 'bg-emerald-950/90 border-emerald-400 text-emerald-300 ring-1 ring-emerald-400/50'
               : rarityConfig.badgeBg
+          } ${
+            isSelected || location.rarity === 'legendary' || proximity.inInteractionRadius
+              ? 'opacity-100 scale-100 z-30'
+              : 'opacity-0 scale-90 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:z-40'
           }`}
         >
-          {proximity.inInteractionRadius ? '⚡ Mở Khóa' : proximity.distanceFormatted}
+          {proximity.inInteractionRadius ? `⚡ ${location.name}` : `${location.name} · ${proximity.distanceFormatted}`}
         </div>
       </button>
     </div>

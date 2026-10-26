@@ -40,6 +40,7 @@ export const LocationCardModal: React.FC<LocationCardModalProps> = ({ location, 
     currentGps,
     teleportToPreset,
     setProfileSubScreen,
+    startArNavigation,
   } = useApp();
 
   const [isSepiaMode, setIsSepiaMode] = useState<boolean>(true);
@@ -217,16 +218,29 @@ export const LocationCardModal: React.FC<LocationCardModalProps> = ({ location, 
                 </div>
               </div>
 
-              {!isWithinInteraction && (
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
-                  onClick={handleQuickTeleport}
-                  className="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400 text-[10px] font-bold text-amber-200 whitespace-nowrap shrink-0 transition-all flex items-center gap-1 active:scale-95"
-                  title="Teleport nhanh để test mở khóa"
+                  onClick={() => {
+                    startArNavigation(location);
+                    onClose();
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-slate-950 text-[10px] font-bold whitespace-nowrap transition-all flex items-center gap-1 shadow-md hover:scale-105 active:scale-95"
+                  title="Mở Camera AR Thực Địa Dẫn Đường"
                 >
-                  <Navigation className="w-3 h-3 text-[#D4AF37]" />
-                  Teleport
+                  <Navigation className="w-3 h-3" />
+                  Dẫn Đường AR
                 </button>
-              )}
+
+                {!isWithinInteraction && (
+                  <button
+                    onClick={handleQuickTeleport}
+                    className="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400 text-[10px] font-bold text-amber-200 whitespace-nowrap transition-all flex items-center gap-1 active:scale-95"
+                    title="Teleport nhanh để test mở khóa"
+                  >
+                    Teleport
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* 2. BODY CONTENT: HISTORICAL STORY SUMMARY */}

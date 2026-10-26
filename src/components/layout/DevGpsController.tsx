@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp, GPS_PRESETS, GpsPreset } from '@/context/AppContext';
-import { Navigation2, MapPin, ChevronDown, ChevronUp, Satellite, Footprints, ShieldCheck } from 'lucide-react';
+import { Navigation2, MapPin, ChevronDown, ChevronUp, Satellite, Footprints, ShieldCheck, Settings } from 'lucide-react';
 
 export const DevGpsController: React.FC = () => {
   const {
@@ -144,6 +145,17 @@ export const DevGpsController: React.FC = () => {
                     +20m Đông
                   </button>
                 </div>
+              </div>
+
+              {/* CMS Admin Link Button */}
+              <div className="mt-2.5 pt-2 border-t border-slate-800/80">
+                <Link
+                  href="/admin/location-manager"
+                  className="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#F59E0B] text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Mở CMS Quản Trị Pin Di Tích</span>
+                </Link>
               </div>
             </motion.div>
           )}
