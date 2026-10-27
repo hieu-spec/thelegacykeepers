@@ -13,10 +13,10 @@ jobs:
       - name: Checkout mã nguồn
         uses: actions/checkout@v4
 
-      - name: Cài đặt Node.js 20
+      - name: Cài đặt Node.js 22 (Bắt buộc cho Capacitor 8 & Next.js 16)
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Cài đặt thư viện & Build Static Mobile Assets
         run: |
@@ -25,7 +25,7 @@ jobs:
 
       - name: Đồng bộ tài nguyên Web sang iOS
         run: |
-          npm run cap -- copy ios
+          node ./node_modules/@capacitor/cli/bin/capacitor copy ios
 
       - name: Nạp các thư viện Swift Package Manager (SPM)
         run: |
