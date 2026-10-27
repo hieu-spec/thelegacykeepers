@@ -23,19 +23,19 @@ jobs:
           npm install
           npm run export:static
 
-      - name: Đồng bộ Capacitor sang iOS
+      - name: Đồng bộ tài nguyên Web sang iOS
         run: |
-          npm run cap -- sync ios
+          npm run cap -- copy ios
+
+      - name: Nạp các thư viện Swift Package Manager (SPM)
+        run: |
+          cd ios/App
+          xcodebuild -resolvePackageDependencies -project App.xcodeproj
 
       - name: Biên dịch Xcode Archive (Không cần chứng chỉ trả phí Apple)
         run: |
           cd ios/App
-          if [ -d "App.xcworkspace" ]; then
-            TARGET_ARG="-workspace App.xcworkspace"
-          else
-            TARGET_ARG="-project App.xcodeproj"
-          fi
-          xcodebuild $TARGET_ARG \
+          xcodebuild -project App.xcodeproj \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
