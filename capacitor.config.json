@@ -1,0 +1,9 @@
+{
+  "appId": "com.legacykeepers.app",
+  "appName": "The Legacy Keepers",
+  "webDir": "out",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

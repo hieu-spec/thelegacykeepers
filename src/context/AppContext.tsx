@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { Coordinates, HistoricalLocation, WitnessStory } from '@/types/location';
 import { HistoricalStory } from '@/types/story';
 import { Badge } from '@/types/badge';
@@ -12,6 +12,7 @@ import { MOCK_BADGES } from '@/data/badges';
 import { INITIAL_USER_PROFILE } from '@/data/initialUser';
 import { INITIAL_ACCOUNTS, INITIAL_VETERANS, SYSTEM_TITLES } from '@/data/accounts';
 import { calculateDistanceMeters, formatDistance, calculateBearing } from '@/utils/geo';
+import { loadLocationsFromStorage, saveLocationsToStorage } from '@/utils/clientStorage';
 
 export type AppTab = 'minigame' | 'radar' | 'profile';
 
@@ -339,7 +340,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [currentAccount, showToast]
   );
 
+  // Tự động tải và đồng bộ di tích bền vững với LocalStorage của trình duyệt
+  useEffect(() => {
+    const stored = loadLocationsFromStorage();
+    if (stored && stored.length > 0) {
+      setLocations(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    saveLocationsToStorage(locations);
+  }, [locations]);
+
   const logout = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      fetch('/api/auth', { method: 'DELETE' }).catch(() => {});
+    }
     setIsAuthenticated(false);
     setProfileSubScreen('main');
     showToast('Đã đăng xuất', 'Bạn đã đăng xuất khỏi tài khoản thành công.', 'emerald');

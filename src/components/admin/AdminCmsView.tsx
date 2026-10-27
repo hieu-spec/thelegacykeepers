@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { CustomLocationPin, VeteranProfile } from '@/types/system';
 import { MapPin, Medal, PlusCircle, Save, Edit3, Trash2, Upload, CheckCircle2 } from 'lucide-react';
+import { processAndUploadMedia } from '@/utils/mediaUpload';
 
 interface AdminCmsViewProps {
   locations: CustomLocationPin[];
@@ -58,15 +59,20 @@ export default function AdminCmsView({
     tributes: [],
   });
 
-  // Xử lý chọn file Audio hoặc Ảnh từ máy tính chuyển thành ObjectURL / Base64 để phát ngay
-  const handleFileUpload = (
+  // Xử lý chọn file Audio hoặc Ảnh từ máy tính chuyển thành DataURL bền vững hoặc upload đám mây
+  const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     callback: (url: string) => void
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    callback(url);
+    try {
+      const url = await processAndUploadMedia(file);
+      callback(url);
+    } catch {
+      const fallbackUrl = URL.createObjectURL(file);
+      callback(fallbackUrl);
+    }
   };
 
   const handlePinSubmit = (e: React.FormEvent) => {

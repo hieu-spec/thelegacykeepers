@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { HistoricalLocation, LocationRarity, LocationContentType } from '@/types/location';
+import 'leaflet/dist/leaflet.css';
 
 export type MapStyleMode = 'satellite' | 'tactical' | 'heritage';
 
@@ -124,25 +125,11 @@ export function TacticalHeritageMap({
     let isMounted = true;
 
     const initLeaflet = async () => {
-      // Nạp CSS Leaflet nếu chưa có
-      if (!document.getElementById('leaflet-css')) {
-        const link = document.createElement('link');
-        link.id = 'leaflet-css';
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
-      }
-
-      // Nạp JS Leaflet
       let L = (window as any).L;
       if (!L) {
-        await new Promise<void>((resolve) => {
-          const script = document.createElement('script');
-          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-          script.onload = () => resolve();
-          document.body.appendChild(script);
-        });
-        L = (window as any).L;
+        const leafletModule = await import('leaflet');
+        L = leafletModule.default || leafletModule;
+        (window as any).L = L;
       }
 
       if (!isMounted || !mapContainerRef.current || mapInstanceRef.current) return;

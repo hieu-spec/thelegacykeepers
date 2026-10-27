@@ -3,6 +3,10 @@
 
 @layer base {
   :root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
     --heritage-gold: #D4AF37;
     --heritage-gold-light: #FDE047;
     --heritage-gold-dark: #996515;
@@ -17,18 +21,38 @@
     --bronze-gold: #D9A05B;
   }
 
+  html,
   body {
-    background-color: #05080E;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    background-color: #070c15;
     color: #F8FAFC;
     font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
     overflow: hidden;
-    user-select: none;
     -webkit-font-smoothing: antialiased;
   }
 
   .font-heritage {
     font-family: var(--font-cinzel), 'Cinzel', serif;
   }
+}
+
+/* Các class tiện ích cho iPhone có Dynamic Island & Home Bar */
+.pt-ios-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.pb-ios-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.ios-frosted-glass {
+  background: rgba(11, 19, 32, 0.78);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
 }
 
 /* Custom Scrollbars */

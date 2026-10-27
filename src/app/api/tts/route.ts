@@ -1,38 +1,42 @@
+// src/app/api/tts/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const text = searchParams.get('text');
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const text = searchParams.get('text')?.trim();
+  const lang = searchParams.get('lang') || 'vi';
 
   if (!text) {
     return NextResponse.json({ error: 'Thiếu văn bản cần đọc' }, { status: 400 });
   }
 
   try {
-    // Cắt ngắn tối đa 200 ký tự mỗi chunk để đảm bảo độ phản hồi tức thì
-    const cleanText = text.slice(0, 200);
-    const ttsUrl = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
-      cleanText
-    )}&tl=vi&client=tw-ob`;
+    // Sử dụng client=gtx thay vì tw-ob để tránh lỗi 403 từ Google
+    const googleTtsUrl = `https://translate.googleapis.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
+      text.slice(0, 180)
+    )}&tl=${lang}&client=gtx`;
 
-    const response = await fetch(ttsUrl, {
+    const response = await fetch(googleTtsUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        Referer: 'https://translate.google.com/',
       },
     });
 
     if (!response.ok) {
-      throw new Error('TTS upstream failed');
+      return NextResponse.json({ error: 'Upstream TTS lỗi' }, { status: 502 });
     }
 
     const arrayBuffer = await response.arrayBuffer();
     return new NextResponse(arrayBuffer, {
+      status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
         'Cache-Control': 'public, max-age=86400',
       },
     });
-  } catch (error) {
-    return NextResponse.json({ error: 'Không thể khởi tạo giọng đọc tiếng Việt' }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Lỗi kết nối TTS' }, { status: 500 });
   }
 }

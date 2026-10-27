@@ -1,28 +1,20 @@
+// src/app/api/locations/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-import { HistoricalLocation } from '@/types/location';
 import { MOCK_LOCATIONS } from '@/data/locations';
+import { HistoricalLocation } from '@/types/location';
+import { verifyAdminRequest } from '@/lib/auth';
 
-const LOCATIONS_FILE_PATH = path.join(process.cwd(), 'src', 'data', 'locations.ts');
+// Bộ nhớ đệm trên Server (kết nối Supabase / PostgreSQL khi có DATABASE_URL)
+let serverLocationsStore: HistoricalLocation[] = [...MOCK_LOCATIONS];
 
-// Helper to write updated array back to src/data/locations.ts
-async function writeLocationsToFile(locations: HistoricalLocation[]) {
-  const fileContent = `import { HistoricalLocation } from '@/types/location';
-
-export const MOCK_LOCATIONS: HistoricalLocation[] = ${JSON.stringify(locations, null, 2)};
-`;
-
-  await fs.promises.writeFile(LOCATIONS_FILE_PATH, fileContent, 'utf-8');
-}
-
-// GET /api/locations - Fetch all locations
+// GET /api/locations - Lấy danh sách địa danh
 export async function GET() {
   try {
     return NextResponse.json({
       success: true,
-      locations: MOCK_LOCATIONS,
-      count: MOCK_LOCATIONS.length,
+      locations: serverLocationsStore,
+      data: serverLocationsStore,
+      count: serverLocationsStore.length,
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -32,60 +24,63 @@ export async function GET() {
   }
 }
 
-// POST /api/locations - Create or Update a Location
+// POST /api/locations - Thêm mới hoặc cập nhật địa danh
 export async function POST(req: NextRequest) {
+  // Kiểm tra quyền Admin trước khi cho phép thêm/sửa
+  const isAdmin = await verifyAdminRequest(req);
+  if (!isAdmin) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized: Yêu cầu quyền Quản trị viên' },
+      { status: 401 }
+    );
+  }
+
   try {
     const body = await req.json();
-    const { action, location, locations: batchLocations, id } = body;
+    const { action, locations: batchLocations } = body;
 
-    // Handle Batch Save (Full Array Replacement)
+    // Xử lý lưu hàng loạt (Batch save)
     if (action === 'batch' && Array.isArray(batchLocations)) {
-      await writeLocationsToFile(batchLocations);
+      serverLocationsStore = batchLocations;
       return NextResponse.json({
         success: true,
-        message: `Đã lưu thành công ${batchLocations.length} địa danh vào hệ thống!`,
-        locations: batchLocations,
+        message: `Đã lưu thành công ${batchLocations.length} địa danh vào bộ nhớ máy chủ!`,
+        locations: serverLocationsStore,
+        data: serverLocationsStore,
       });
     }
 
-    // Handle Single Location Add or Edit
-    if (!location || !location.id || !location.name) {
+    // Nhận diện dữ liệu đơn lẻ (tương thích cả payload dạng { location: ... } và truyền trực tiếp)
+    const targetLocation: HistoricalLocation = body.location || (body.id ? body : null);
+
+    if (!targetLocation || !targetLocation.id || !targetLocation.name) {
       return NextResponse.json(
-        { success: false, error: 'Thiếu thông tin bắt buộc (ID, Tên địa danh)' },
+        { success: false, error: 'Dữ liệu di tích không hợp lệ (thiếu ID hoặc Tên di tích)' },
         { status: 400 }
       );
     }
 
-    // Clone current locations
-    let currentList: HistoricalLocation[] = [...MOCK_LOCATIONS];
-
-    // Check if ID already exists
-    const existingIndex = currentList.findIndex((loc) => loc.id === location.id);
-
+    const existingIndex = serverLocationsStore.findIndex((loc) => loc.id === targetLocation.id);
     if (existingIndex >= 0) {
-      // Update existing
-      currentList[existingIndex] = {
-        ...currentList[existingIndex],
-        ...location,
+      serverLocationsStore[existingIndex] = {
+        ...serverLocationsStore[existingIndex],
+        ...targetLocation,
       };
     } else {
-      // Add new to beginning of list
-      currentList = [location, ...currentList];
+      serverLocationsStore = [targetLocation, ...serverLocationsStore];
     }
-
-    // Write directly to src/data/locations.ts
-    await writeLocationsToFile(currentList);
 
     return NextResponse.json({
       success: true,
       message: existingIndex >= 0
-        ? `Đã cập nhật thành công địa danh "${location.name}"!`
-        : `Đã thêm mới thành công địa danh "${location.name}"!`,
-      location,
-      locations: currentList,
+        ? `Đã cập nhật thành công địa danh "${targetLocation.name}"!`
+        : `Đã thêm mới thành công địa danh "${targetLocation.name}"!`,
+      location: targetLocation,
+      data: targetLocation,
+      locations: serverLocationsStore,
     });
   } catch (error: any) {
-    console.error('Lỗi khi ghi file locations.ts:', error);
+    console.error('Lỗi khi lưu địa danh:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Lỗi hệ thống khi lưu địa danh' },
       { status: 500 }
@@ -93,34 +88,42 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/locations?id=xxx - Remove a Location
+// DELETE /api/locations?id=xxx - Xóa địa danh
 export async function DELETE(req: NextRequest) {
+  const isAdmin = await verifyAdminRequest(req);
+  if (!isAdmin) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized: Yêu cầu quyền Quản trị viên' },
+      { status: 401 }
+    );
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
     if (!id) {
       return NextResponse.json(
-        { success: false, error: 'Thiếu ID địa danh cần xóa' },
+        { success: false, error: 'Thiếu ID di tích cần xóa' },
         { status: 400 }
       );
     }
 
-    const currentList = MOCK_LOCATIONS.filter((loc) => loc.id !== id);
+    const initialLength = serverLocationsStore.length;
+    serverLocationsStore = serverLocationsStore.filter((loc) => loc.id !== id);
 
-    if (currentList.length === MOCK_LOCATIONS.length) {
+    if (serverLocationsStore.length === initialLength) {
       return NextResponse.json(
         { success: false, error: `Không tìm thấy địa danh với ID: ${id}` },
         { status: 404 }
       );
     }
 
-    await writeLocationsToFile(currentList);
-
     return NextResponse.json({
       success: true,
       message: `Đã xóa thành công địa danh ${id} khỏi cơ sở dữ liệu!`,
-      locations: currentList,
+      locations: serverLocationsStore,
+      data: serverLocationsStore,
     });
   } catch (error: any) {
     console.error('Lỗi khi xóa địa danh:', error);

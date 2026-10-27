@@ -22,13 +22,19 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#0B1320',
+  viewportFit: 'cover', // BẮT BUỘC cho iPhone để tràn lên vùng Dynamic Island & xuống dưới Home Indicator
+  themeColor: '#070C15',
 };
 
 export const metadata: Metadata = {
-  title: 'The Legacy Keepers · Người Gìn Giữ Di Sản',
+  title: 'The Legacy Keepers | Người Gìn Giữ Di Sản',
   description:
     'Ứng dụng mobile-first khám phá lịch sử Việt Nam qua định vị GPS kết hợp minigame Mảnh ghép Lịch sử và sưu tầm huy hiệu danh dự.',
+  appleWebApp: {
+    capable: true,
+    title: 'Di Sản Việt',
+    statusBarStyle: 'black-translucent',
+  },
 };
 
 export default function RootLayout({

@@ -1,54 +1,88 @@
-import { Coordinates } from '@/types/location';
+// src/utils/geo.ts
+
+export interface Coordinates {
+  lat: number;
+  lng: number;
+}
+
+const EARTH_RADIUS_METERS = 6371e3; // 6,371 km
+
+const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
+const toDegrees = (radians: number): number => (radians * 180) / Math.PI;
 
 /**
- * Calculates the great-circle distance between two coordinates using the Haversine formula.
- * Returns distance in meters.
+ * Tính khoảng cách giữa 2 tọa độ GPS theo công thức Haversine (đơn vị: mét)
  */
-export function calculateDistanceMeters(coord1: Coordinates, coord2: Coordinates): number {
-  const R = 6371e3; // Earth's radius in meters
-  const lat1Rad = (coord1.lat * Math.PI) / 180;
-  const lat2Rad = (coord2.lat * Math.PI) / 180;
-  const deltaLat = ((coord2.lat - coord1.lat) * Math.PI) / 180;
-  const deltaLng = ((coord2.lng - coord1.lng) * Math.PI) / 180;
+export function calculateDistance(coord1: Coordinates, coord2: Coordinates): number {
+  const φ1 = toRadians(coord1.lat);
+  const φ2 = toRadians(coord2.lat);
+  const Δφ = toRadians(coord2.lat - coord1.lat);
+  const Δλ = toRadians(coord2.lng - coord1.lng);
 
   const a =
-    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-    Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
+  return EARTH_RADIUS_METERS * c;
 }
 
 /**
- * Calculates distance in kilometers.
+ * Alias cho calculateDistance (tương thích ngược với AppContext)
+ */
+export const calculateDistanceMeters = calculateDistance;
+
+/**
+ * Tính khoảng cách theo đơn vị km
  */
 export function calculateDistanceKm(coord1: Coordinates, coord2: Coordinates): number {
-  return calculateDistanceMeters(coord1, coord2) / 1000;
+  return calculateDistance(coord1, coord2) / 1000;
 }
 
 /**
- * Formats distance into a clean Vietnamese string.
+ * Tính góc phương vị (Bearing) từ điểm A đến điểm B (0° - 360°, Bắc = 0°)
+ */
+export function calculateBearing(start: Coordinates, end: Coordinates): number {
+  const φ1 = toRadians(start.lat);
+  const φ2 = toRadians(end.lat);
+  const Δλ = toRadians(end.lng - start.lng);
+
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x =
+    Math.cos(φ1) * Math.sin(φ2) -
+    Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+  const θ = Math.atan2(y, x);
+  return (toDegrees(θ) + 360) % 360;
+}
+
+/**
+ * Tính độ lệch góc ngắn nhất (-180° đến +180°) giữa hướng người chơi và hướng mục tiêu
+ */
+export function calculateDeltaAngle(targetBearing: number, playerHeading: number): number {
+  let delta = targetBearing - playerHeading;
+  while (delta > 180) delta -= 360;
+  while (delta < -180) delta += 360;
+  return delta;
+}
+
+/**
+ * Kiểm tra người dùng đã bước vào bán kính tương tác (Geofencing) hay chưa
+ */
+export function isWithinRadius(
+  userCoord: Coordinates,
+  targetCoord: Coordinates,
+  radiusMeters: number = 100
+): boolean {
+  return calculateDistance(userCoord, targetCoord) <= radiusMeters;
+}
+
+/**
+ * Định dạng hiển thị khoảng cách thân thiện (tiếng Việt)
  */
 export function formatDistance(meters: number): string {
   if (meters < 1000) {
     return `${Math.round(meters)} m`;
   }
   return `${(meters / 1000).toFixed(1)} km`;
-}
-
-/**
- * Calculates the initial compass bearing from coord1 to coord2 in degrees (0 = North, 90 = East, 180 = South, 270 = West).
- */
-export function calculateBearing(coord1: Coordinates, coord2: Coordinates): number {
-  const lat1 = (coord1.lat * Math.PI) / 180;
-  const lat2 = (coord2.lat * Math.PI) / 180;
-  const dLng = ((coord2.lng - coord1.lng) * Math.PI) / 180;
-
-  const y = Math.sin(dLng) * Math.cos(lat2);
-  const x =
-    Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-
-  let brng = (Math.atan2(y, x) * 180) / Math.PI;
-  return (brng + 360) % 360;
 }

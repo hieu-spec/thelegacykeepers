@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import {
   Camera,
   CameraOff,
@@ -14,30 +14,70 @@ import {
   Target,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { calculateDistance, calculateBearing, calculateDeltaAngle, formatDistance } from "@/utils/geo";
 
-// Tính khoảng cách (mét)
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+interface DeviceOrientationEventiOS extends DeviceOrientationEvent {
+  webkitCompassHeading?: number;
 }
 
-// Tính góc phương vị (Bearing 0° - 360°) từ người dùng tới di tích
-function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const toDeg = (r: number) => (r * 180) / Math.PI;
-  const dLon = toRad(lon2 - lon1);
-  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
-  const x =
-    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+interface DeviceOrientationEventConstructor {
+  requestPermission?: () => Promise<'granted' | 'denied'>;
 }
+
+export const useARCompass = (initialHeading: number = 0) => {
+  const [heading, setHeading] = useState<number>(initialHeading);
+  const [permissionState, setPermissionState] = useState<'prompt' | 'granted' | 'denied'>('prompt');
+
+  const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
+    const iosEvent = event as DeviceOrientationEventiOS;
+    if (typeof iosEvent.webkitCompassHeading === 'number') {
+      // iOS Safari trả về góc hướng Bắc thực tế
+      setHeading(Math.round(iosEvent.webkitCompassHeading));
+    } else if (event.alpha !== null) {
+      // Android / Trình duyệt chuẩn
+      setHeading(Math.round((360 - event.alpha) % 360));
+    }
+  }, []);
+
+  const requestCompassPermission = useCallback(async () => {
+    const DeviceOrientation = (typeof window !== 'undefined' ? (window as any).DeviceOrientationEvent : undefined) as
+      | DeviceOrientationEventConstructor
+      | undefined;
+
+    if (DeviceOrientation && typeof DeviceOrientation.requestPermission === 'function') {
+      try {
+        const response = await DeviceOrientation.requestPermission();
+        setPermissionState(response);
+        if (response === 'granted') {
+          window.addEventListener('deviceorientation', handleOrientation, true);
+        }
+      } catch (error) {
+        console.error('Lỗi xin quyền cảm biến la bàn iOS:', error);
+        setPermissionState('denied');
+      }
+    } else {
+      // Thiết bị không yêu cầu xin quyền kiểu iOS 13+
+      setPermissionState('granted');
+      if (typeof window !== 'undefined') {
+        window.addEventListener('deviceorientation', handleOrientation, true);
+      }
+    }
+  }, [handleOrientation]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const DeviceOrientation = (window as any).DeviceOrientationEvent as DeviceOrientationEventConstructor | undefined;
+    if (!DeviceOrientation || typeof DeviceOrientation.requestPermission !== 'function') {
+      setPermissionState('granted');
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    }
+    return () => {
+      window.removeEventListener('deviceorientation', handleOrientation, true);
+    };
+  }, [handleOrientation]);
+
+  return { heading, setHeading, permissionState, requestCompassPermission };
+};
 
 export interface ARNavigationProps {
   targetLocation?: any;
@@ -67,7 +107,9 @@ export function ARNavigationView({
 
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [heading, setHeading] = useState<number>(0); // Hướng xoay la bàn (0 - 360)
+
+  // Hook La bàn AR chuẩn đa nền tảng (iOS 13+ & Android)
+  const { heading, setHeading, permissionState, requestCompassPermission } = useARCompass(0);
 
   // Bật / tắt luồng Camera thực tế (WebRTC getUserMedia)
   const toggleCamera = async () => {
@@ -106,24 +148,8 @@ export function ARNavigationView({
     }
   };
 
-  // Lắng nghe cảm biến La bàn điện thoại (DeviceOrientation)
   useEffect(() => {
-    const handleOrientation = (e: DeviceOrientationEvent) => {
-      const compass =
-        (e as any).webkitCompassHeading ??
-        (e.alpha !== null ? 360 - e.alpha : null);
-      if (compass !== null && !isNaN(compass)) {
-        setHeading(Math.round(compass));
-      }
-    };
-
-    if (typeof window !== "undefined") {
-      window.addEventListener("deviceorientation", handleOrientation, true);
-    }
     return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("deviceorientation", handleOrientation, true);
-      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
@@ -132,8 +158,7 @@ export function ARNavigationView({
 
   // Tính toán danh sách các điểm di tích gần nhất kèm góc lệch so với tầm nhìn
   const nearbyBeacons = useMemo(() => {
-    const uLat = activePosition.lat;
-    const uLng = activePosition.lng;
+    const uCoord = { lat: activePosition.lat, lng: activePosition.lng };
 
     return (locations || [])
       .map((loc: any) => {
@@ -141,13 +166,10 @@ export function ARNavigationView({
         const lng = loc.coordinates?.lng ?? loc.lng;
         if (!lat || !lng) return null;
 
-        const distance = calculateDistance(uLat, uLng, lat, lng);
-        const bearing = calculateBearing(uLat, uLng, lat, lng);
-
-        // Độ lệch góc (-180 đến +180) giữa hướng nhìn của người dùng và hướng di tích
-        let deltaAngle = bearing - heading;
-        if (deltaAngle > 180) deltaAngle -= 360;
-        if (deltaAngle < -180) deltaAngle += 360;
+        const locCoord = { lat, lng };
+        const distance = calculateDistance(uCoord, locCoord);
+        const bearing = calculateBearing(uCoord, locCoord);
+        const deltaAngle = calculateDeltaAngle(bearing, heading);
 
         const isTarget = activeTarget && activeTarget.id === loc.id;
 
@@ -275,6 +297,19 @@ export function ARNavigationView({
           </button>
         </div>
 
+        {/* Nút yêu cầu cấp quyền cảm biến la bàn cho iOS nếu permissionState === 'prompt' */}
+        {permissionState === 'prompt' && (
+          <div className="absolute top-16 left-4 right-4 z-30 flex justify-center">
+            <button
+              onClick={requestCompassPermission}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-bold text-xs shadow-xl active:scale-95 transition flex items-center gap-2 border border-amber-300 animate-pulse"
+            >
+              <Compass className="w-4 h-4" />
+              <span>Chạm để kích hoạt La Bàn Thực tế (iOS)</span>
+            </button>
+          </div>
+        )}
+
         {/* Thông báo lỗi nếu thiết bị không có camera */}
         {cameraError && (
           <div className="absolute top-16 left-4 right-4 z-30 bg-rose-950/90 border border-rose-500/50 text-rose-200 px-3 py-2 rounded-xl text-xs flex items-center gap-2 shadow-xl">
@@ -297,12 +332,10 @@ export function ARNavigationView({
         {/* CÁC THẺ HOLOGRAM DI TÍCH NỔI TRONG KHÔNG GIAN AR */}
         <div className="relative w-full h-full z-20 pointer-events-none">
           {nearbyBeacons.map((loc: any, idx) => {
-            // Chuyển đổi góc lệch (-60° đến +60°) thành vị trí ngang trên màn hình (10% đến 90%)
             const clampedAngle = Math.max(-65, Math.min(65, loc.deltaAngle));
             const leftPercent = 50 + (clampedAngle / 65) * 40;
             const topPercent = 28 + (idx % 3) * 18;
             const isInSight = Math.abs(loc.deltaAngle) <= 55;
-
             const isHighlight = loc.isTarget || idx === 0;
 
             return (
@@ -342,9 +375,7 @@ export function ARNavigationView({
                   <div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] font-bold uppercase text-emerald-400">
-                        {loc.distance < 1000
-                          ? `${loc.distance}m`
-                          : `${(loc.distance / 1000).toFixed(1)}km`}
+                        {formatDistance(loc.distance)}
                       </span>
                       <span className="text-[10px] text-slate-400">
                         • Góc {loc.bearing}°
@@ -401,9 +432,7 @@ export function ARNavigationView({
                 </p>
               </div>
               <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 shrink-0">
-                {loc.distance < 1000
-                  ? `${loc.distance}m`
-                  : `${(loc.distance / 1000).toFixed(1)}km`}
+                {formatDistance(loc.distance)}
               </span>
             </button>
           ))}

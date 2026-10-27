@@ -1,16 +1,39 @@
 // src/components/common/AudioPlayerBar.tsx
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Play, Pause, RotateCcw, Volume2, VolumeX, ChevronDown, Radio, X, UploadCloud } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { calculateDistance } from '@/utils/geo';
+import { WitnessStory } from '@/types/location';
 
 export interface AudioPlayerBarProps {
   title?: string;
   speaker?: string;
   textScript?: string;
-  uploadedAudioUrl?: string; // Nếu Admin đã tải file MP3/WAV lên thì ưu tiên phát file này
+  uploadedAudioUrl?: string; // Nếu có file MP3/WAV gốc thì ưu tiên phát file này
+  activeAudioWitness?: WitnessStory | null;
+  isPlaying?: boolean;
   onClose?: () => void;
+  onTogglePlay?: () => void;
+}
+
+// Chia văn bản thành các đoạn < 175 ký tự cho API TTS
+function splitTextIntoChunks(text: string, maxLength = 175): string[] {
+  const sentences = text.match(/[^.!?]+[.!?]+|\s*[^.!?]+$/g) || [text];
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const sentence of sentences) {
+    if ((current + sentence).length <= maxLength) {
+      current += sentence;
+    } else {
+      if (current.trim()) chunks.push(current.trim());
+      current = sentence;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
 }
 
 export function AudioPlayerBar({
@@ -18,12 +41,24 @@ export function AudioPlayerBar({
   speaker: propSpeaker,
   textScript: propTextScript,
   uploadedAudioUrl: propUploadedAudioUrl,
+  activeAudioWitness: propActiveAudioWitness,
+  isPlaying: propIsPlaying,
   onClose: propOnClose,
+  onTogglePlay: propOnTogglePlay,
 }: AudioPlayerBarProps = {}) {
-  const { selectedLocation, userLocation, currentGps, locations } = useApp();
+  const {
+    selectedLocation,
+    userLocation,
+    currentGps,
+    locations,
+    activeAudioWitness: contextActiveWitness,
+    isPlayingAudio: contextIsPlayingAudio,
+    stopAudio,
+    togglePlayAudio,
+  } = useApp();
 
   const [activeLoc, setActiveLoc] = useState<any | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [internalIsPlaying, setInternalIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
@@ -32,34 +67,59 @@ export function AudioPlayerBar({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const triggeredIdsRef = useRef<Set<string>>(new Set());
 
-  // Derive active data from props or context
-  const title = propTitle || activeLoc?.name || selectedLocation?.name || '';
+  // Đồng bộ nguồn nhân chứng (prop hoặc context)
+  const currentWitness = propActiveAudioWitness !== undefined ? propActiveAudioWitness : contextActiveWitness;
+
+  // Xác định trạng thái isPlaying đồng bộ từ props hoặc context hoặc internal
+  const isPlaying =
+    propIsPlaying !== undefined
+      ? propIsPlaying
+      : contextIsPlayingAudio !== undefined
+      ? contextIsPlayingAudio
+      : internalIsPlaying;
+
+  // Trích xuất metadata bài đọc
+  const title =
+    propTitle ||
+    currentWitness?.title ||
+    currentWitness?.memoryFilmTitle ||
+    activeLoc?.name ||
+    selectedLocation?.name ||
+    '';
+
   const speaker =
     propSpeaker ||
+    currentWitness?.speakerName ||
+    currentWitness?.witnessName ||
     activeLoc?.witnessStory?.witnessName ||
     activeLoc?.witnessStory?.speakerName ||
     selectedLocation?.witnessStory?.witnessName ||
     selectedLocation?.witnessStory?.speakerName ||
     'Tư liệu Lịch sử';
+
   const textScript =
     propTextScript ||
+    currentWitness?.fullStory ||
+    currentWitness?.quote ||
+    activeLoc?.witnessStory?.fullStory ||
     activeLoc?.witnessStory?.quote ||
     activeLoc?.historicalSummary ||
     activeLoc?.content ||
-    activeLoc?.description ||
+    selectedLocation?.witnessStory?.fullStory ||
     selectedLocation?.witnessStory?.quote ||
     selectedLocation?.historicalSummary ||
-    selectedLocation?.description ||
     '';
+
   const uploadedAudioUrl =
     propUploadedAudioUrl ||
+    currentWitness?.audioUrl ||
     activeLoc?.audioUrl ||
     activeLoc?.witnessStory?.audioUrl ||
     selectedLocation?.audioUrl ||
     (selectedLocation?.witnessStory as any)?.audioUrl ||
     '';
 
-  // Proximity auto-trigger (Haversine formula)
+  // Proximity auto-trigger sử dụng calculateDistance từ @/utils/geo
   const activePosition = userLocation || currentGps;
   useEffect(() => {
     if (!activePosition || !locations?.length) return;
@@ -69,14 +129,7 @@ export function AudioPlayerBar({
       const lng = (loc as any).coordinates?.lng ?? (loc as any).lng;
       if (!lat || !lng) continue;
 
-      const R = 6371e3;
-      const toRad = (deg: number) => (deg * Math.PI) / 180;
-      const dLat = toRad(lat - activePosition.lat);
-      const dLng = toRad(lng - activePosition.lng);
-      const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(activePosition.lat)) * Math.cos(toRad(lat)) * Math.sin(dLng / 2) ** 2;
-      const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const dist = calculateDistance(activePosition, { lat, lng });
       const triggerRadius = (loc as any).interactionRadius || 120;
 
       if (dist <= triggerRadius && !triggeredIdsRef.current.has(loc.id)) {
@@ -99,27 +152,13 @@ export function AudioPlayerBar({
     }
   }, [selectedLocation]);
 
-  // Chia câu chuyện dài thành các câu nhỏ (< 180 ký tự) để đọc TTS tiếng Việt mượt mà
+  // Chia câu chuyện dài thành các câu nhỏ (< 175 ký tự) để đọc TTS mượt mà
   const sentences = useMemo(() => {
     if (!textScript) return ['Đang kết nối tần số ký ức di sản Việt Nam.'];
-    return textScript
-      .split(/(?<=[.!?])\s+/)
-      .flatMap((sentence: string) => {
-        if (sentence.length <= 180) return [sentence];
-        return sentence.match(/.{1,180}(\s|$)/g) || [sentence];
-      })
-      .map((s: string) => s.trim())
-      .filter(Boolean);
+    return splitTextIntoChunks(textScript);
   }, [textScript]);
 
-  useEffect(() => {
-    // Khởi tạo lại khi đổi bài/đổi di tích
-    stopPlayback();
-    setCurrentChunkIndex(0);
-    return () => stopPlayback();
-  }, [title, uploadedAudioUrl, textScript]);
-
-  const stopPlayback = () => {
+  const stopPlayback = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -127,81 +166,117 @@ export function AudioPlayerBar({
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
-    setIsPlaying(false);
-  };
+    setInternalIsPlaying(false);
+    if (stopAudio) stopAudio();
+  }, [stopAudio]);
 
-  const playChunk = async (index: number) => {
-    if (index >= sentences.length) {
-      setIsPlaying(false);
-      setCurrentChunkIndex(0);
-      return;
-    }
+  useEffect(() => {
+    stopPlayback();
+    setCurrentChunkIndex(0);
+    return () => stopPlayback();
+  }, [title, uploadedAudioUrl, textScript, stopPlayback]);
 
-    const chunkText = sentences[index];
-
-    // 1. Nếu có file Audio do Admin tải lên -> Phát trực tiếp file đó
-    if (uploadedAudioUrl && audioRef.current) {
-      audioRef.current.src = uploadedAudioUrl;
-      audioRef.current.playbackRate = playbackSpeed;
-      audioRef.current.muted = isMuted;
+  // Rung phản hồi haptic khi kích hoạt nhân chứng mới
+  useEffect(() => {
+    if (currentWitness && typeof navigator !== 'undefined' && navigator.vibrate) {
       try {
-        await audioRef.current.play();
-        setIsPlaying(true);
-      } catch (e) {
-        console.warn('Audio play failed:', e);
-      }
-      return;
+        navigator.vibrate(100);
+      } catch {}
     }
+  }, [currentWitness]);
 
-    // 2. Phát qua API Giọng đọc Tiếng Việt (/api/tts)
-    try {
-      if (audioRef.current) {
-        audioRef.current.src = `/api/tts?text=${encodeURIComponent(chunkText)}`;
-        audioRef.current.playbackRate = playbackSpeed;
-        audioRef.current.muted = isMuted;
-        await audioRef.current.play();
-        setIsPlaying(true);
-      }
-    } catch {
-      // 3. Fallback: Nếu mất mạng, ép giọng 'vi-VN' trên trình duyệt
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(chunkText);
-        utterance.lang = 'vi-VN';
-        utterance.rate = playbackSpeed;
-        const voices = window.speechSynthesis.getVoices();
-        const vnVoice = voices.find(
-          (v) => v.lang.toLowerCase().includes('vi') || v.name.toLowerCase().includes('viet')
-        );
-        if (vnVoice) utterance.voice = vnVoice;
-        utterance.onend = () => {
-          setCurrentChunkIndex((prev) => {
-            const next = prev + 1;
+  const speakFallback = useCallback((text: string) => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'vi-VN';
+      utterance.rate = playbackSpeed;
+      const voices = window.speechSynthesis.getVoices();
+      const vnVoice = voices.find(
+        (v) => v.lang.toLowerCase().includes('vi') || v.name.toLowerCase().includes('viet')
+      );
+      if (vnVoice) utterance.voice = vnVoice;
+      utterance.onend = () => {
+        setCurrentChunkIndex((prev) => {
+          const next = prev + 1;
+          if (next < sentences.length) {
             playChunk(next);
             return next;
-          });
-        };
-        window.speechSynthesis.speak(utterance);
-        setIsPlaying(true);
-      }
+          }
+          setInternalIsPlaying(false);
+          return 0;
+        });
+      };
+      window.speechSynthesis.speak(utterance);
+      setInternalIsPlaying(true);
     }
-  };
+  }, [playbackSpeed, sentences.length]);
+
+  const playChunk = useCallback(
+    async (index: number) => {
+      if (index >= sentences.length) {
+        setInternalIsPlaying(false);
+        setCurrentChunkIndex(0);
+        return;
+      }
+
+      const chunkText = sentences[index];
+
+      // 1. Nếu có file Audio gốc do Admin tải lên -> Ưu tiên phát file này
+      if (uploadedAudioUrl && audioRef.current) {
+        audioRef.current.src = uploadedAudioUrl;
+        audioRef.current.playbackRate = playbackSpeed;
+        audioRef.current.muted = isMuted;
+        try {
+          await audioRef.current.play();
+          setInternalIsPlaying(true);
+        } catch (e) {
+          console.warn('Audio play failed:', e);
+        }
+        return;
+      }
+
+      // 2. Phát qua API Giọng đọc Tiếng Việt (/api/tts)
+      try {
+        if (audioRef.current) {
+          audioRef.current.src = `/api/tts?text=${encodeURIComponent(chunkText)}&lang=vi`;
+          audioRef.current.playbackRate = playbackSpeed;
+          audioRef.current.muted = isMuted;
+          await audioRef.current.play();
+          setInternalIsPlaying(true);
+        }
+      } catch {
+        // 3. Fallback: Nếu không tải được audio stream, ép giọng 'vi-VN' trên Web Speech API
+        speakFallback(chunkText);
+      }
+    },
+    [sentences, uploadedAudioUrl, playbackSpeed, isMuted, speakFallback]
+  );
 
   const handleTogglePlay = () => {
+    if (propOnTogglePlay) {
+      propOnTogglePlay();
+      return;
+    }
+
     if (isPlaying) {
       audioRef.current?.pause();
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
-      setIsPlaying(false);
+      setInternalIsPlaying(false);
+      if (stopAudio) stopAudio();
     } else {
+      if (togglePlayAudio) togglePlayAudio();
+      setInternalIsPlaying(true);
       playChunk(currentChunkIndex);
     }
   };
 
   const handleAudioEnded = () => {
     if (uploadedAudioUrl) {
-      setIsPlaying(false);
+      setInternalIsPlaying(false);
+      if (stopAudio) stopAudio();
       return;
     }
     const nextIndex = currentChunkIndex + 1;
@@ -209,8 +284,9 @@ export function AudioPlayerBar({
       setCurrentChunkIndex(nextIndex);
       playChunk(nextIndex);
     } else {
-      setIsPlaying(false);
+      setInternalIsPlaying(false);
       setCurrentChunkIndex(0);
+      if (stopAudio) stopAudio();
     }
   };
 
@@ -220,10 +296,10 @@ export function AudioPlayerBar({
     if (propOnClose) propOnClose();
   };
 
-  // If no location or script is available, don't show
+  // Nếu không có thông tin bài đọc hoặc phụ đề, ẩn thanh bar
   if (!title && !textScript) return null;
 
-  // Chế độ thu gọn góc phải dưới để không che khuất danh sách Nhiệm Vụ Sự Kiện
+  // Chế độ thu gọn góc phải dưới
   if (isMinimized) {
     return (
       <div className="fixed bottom-6 right-6 z-[600] flex items-center gap-3 bg-[#0B1320]/95 border border-amber-500/60 rounded-full px-4 py-2.5 shadow-[0_0_25px_rgba(212,175,55,0.3)] backdrop-blur-md">
@@ -231,6 +307,7 @@ export function AudioPlayerBar({
         <button
           onClick={handleTogglePlay}
           className="w-9 h-9 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center hover:bg-amber-400 transition"
+          aria-label={isPlaying ? 'Tạm dừng' : 'Phát'}
         >
           {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
         </button>
@@ -270,6 +347,9 @@ export function AudioPlayerBar({
               )}
             </div>
             <h4 className="text-sm font-bold text-white truncate">{title}</h4>
+            <p className="text-[11px] text-gray-300 line-clamp-1 mt-0.5">
+              {sentences[currentChunkIndex] || textScript}
+            </p>
           </div>
         </div>
 

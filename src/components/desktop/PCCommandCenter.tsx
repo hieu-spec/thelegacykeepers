@@ -38,7 +38,11 @@ const MOCK_LEADERBOARD = [
   { rank: 5, name: 'Võ Thảo Vy', badge: 'Tân Binh Gìn Giữ Di Sản', level: 1, exp: 120, locationsCount: 1, avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80' },
 ];
 
-export const PCCommandCenter: React.FC = () => {
+export interface PCCommandCenterProps {
+  onOpenMobileSimulator?: () => void;
+}
+
+export const PCCommandCenter: React.FC<PCCommandCenterProps> = ({ onOpenMobileSimulator }) => {
   const {
     locations,
     userProfile,
@@ -200,8 +204,14 @@ export const PCCommandCenter: React.FC = () => {
         {/* BOTTOM SWITCHER: TOGGLE TO MOBILE SIMULATOR & LOGOUT */}
         <div className="pt-4 border-t border-slate-800 space-y-2">
           <button
-            onClick={() => setDesktopViewMode('mobile_simulator')}
-            className="w-full py-2.5 px-3 rounded-xl bg-slate-900 border border-[#D4AF37]/50 text-amber-200 text-xs font-bold flex items-center justify-center gap-2 hover:border-[#D4AF37] hover:scale-[1.02] active:scale-95 transition-all shadow-lg"
+            onClick={() => {
+              if (onOpenMobileSimulator) {
+                onOpenMobileSimulator();
+              } else {
+                setDesktopViewMode('mobile_simulator');
+              }
+            }}
+            className="w-full py-2.5 px-3 rounded-xl bg-slate-900 border border-[#D4AF37]/50 text-amber-200 text-xs font-bold flex items-center justify-center gap-2 hover:border-[#D4AF37] hover:scale-[1.02] active:scale-95 transition-all shadow-lg cursor-pointer"
           >
             <Smartphone className="w-4 h-4 text-[#D4AF37]" />
             <span>Chuyển Sang Giả Lập Mobile AR</span>

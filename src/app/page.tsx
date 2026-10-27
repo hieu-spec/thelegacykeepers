@@ -1,16 +1,15 @@
+// src/app/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
-import { MobileContainer } from '@/components/layout/MobileContainer';
+import { MobileHeritageShell } from '@/components/mobile/MobileHeritageShell';
 import { PCCommandCenter } from '@/components/desktop/PCCommandCenter';
-import { RadarScanner } from '@/components/radar/RadarScanner';
-import { MinigameView } from '@/components/minigame/MinigameView';
-import { ProfileView } from '@/components/profile/ProfileView';
 import { LoginScreen } from '@/components/auth/LoginScreen';
 
-export default function Home() {
-  const { currentTab, isAuthenticated, desktopViewMode } = useApp();
+export default function HomePage() {
+  const { isAuthenticated, desktopViewMode, setDesktopViewMode } = useApp();
+  const [forceMobileSimOnPC, setForceMobileSimOnPC] = useState(false);
   const [isDesktopScreen, setIsDesktopScreen] = useState<boolean>(false);
 
   useEffect(() => {
@@ -26,17 +25,34 @@ export default function Home() {
     return <LoginScreen />;
   }
 
-  // Render Full PC Command Center on Desktop when in 'dashboard' mode
-  if (isDesktopScreen && desktopViewMode === 'dashboard') {
-    return <PCCommandCenter />;
-  }
+  const isShowingMobileSimOnPC = forceMobileSimOnPC || desktopViewMode === 'mobile_simulator';
 
-  // Render Mobile Viewport (Optimized 1-hand Field Experience & AR Navigation)
   return (
-    <MobileContainer>
-      {currentTab === 'radar' && <RadarScanner />}
-      {currentTab === 'minigame' && <MinigameView />}
-      {currentTab === 'profile' && <ProfileView />}
-    </MobileContainer>
+    <>
+      {/* Trên điện thoại & máy tính bảng (< 1024px): Hiển thị trực tiếp MobileHeritageShell full-screen */}
+      <div className="block lg:hidden w-full h-[100dvh]">
+        <MobileHeritageShell isSimulatorFrame={false} />
+      </div>
+
+      {/* Trên màn hình lớn PC (>= 1024px): Cho phép chuyển đổi mượt giữa PC Command Center và Khung iPhone 16 Pro Giả lập */}
+      <div className="hidden lg:block w-full min-h-screen">
+        {isShowingMobileSimOnPC ? (
+          <MobileHeritageShell
+            isSimulatorFrame={true}
+            onExitSimulator={() => {
+              setForceMobileSimOnPC(false);
+              setDesktopViewMode('dashboard');
+            }}
+          />
+        ) : (
+          <PCCommandCenter
+            onOpenMobileSimulator={() => {
+              setForceMobileSimOnPC(true);
+              setDesktopViewMode('mobile_simulator');
+            }}
+          />
+        )}
+      </div>
+    </>
   );
 }
