@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-14 # Máy Mac ảo miễn phí của GitHub có sẵn Xcode
+    runs-on: macos-latest
     steps:
       - name: Checkout mã nguồn
         uses: actions/checkout@v4
