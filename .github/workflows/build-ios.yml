@@ -25,7 +25,7 @@ jobs:
 
       - name: Đồng bộ Capacitor sang iOS
         run: |
-          npx cap sync ios
+          npm run cap -- sync ios
 
       - name: Biên dịch Xcode Archive (Không cần chứng chỉ trả phí Apple)
         run: |
@@ -39,6 +39,7 @@ jobs:
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
+            -destination "generic/platform=iOS" \
             -derivedDataPath build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
@@ -48,7 +49,9 @@ jobs:
       - name: Đóng gói thành file .ipa (Sẵn sàng cài qua Sideloadly / AltStore / 3uTools)
         run: |
           mkdir -p Payload
-          cp -r ios/App/build/Build/Products/Release-iphoneos/App.app Payload/
+          APP_PATH=$(find ios/App/build -name "App.app" -type d | head -n 1)
+          echo "Found app at: $APP_PATH"
+          cp -r "$APP_PATH" Payload/
           zip -r LegacyKeepers-iOS.ipa Payload
 
       - name: Tải file LegacyKeepers-iOS.ipa lên mục Artifacts
@@ -56,3 +59,4 @@ jobs:
         with:
           name: LegacyKeepers-iOS-IPA
           path: LegacyKeepers-iOS.ipa
+          if-no-files-found: error

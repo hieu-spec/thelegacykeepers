@@ -10,6 +10,7 @@
     "export:static": "node scripts/build-static.js",
     "build:apk": "npx cap sync android && powershell -NoProfile -Command \"$env:ANDROID_HOME = 'C:\\Users\\Le Hieu\\AppData\\Local\\Android\\Sdk'; cd android; .\\gradlew.bat assembleDebug; cd ..\"",
     "sync:ios": "node scripts/build-static.js && npx cap sync ios",
+    "cap": "capacitor",
     "start": "next start",
     "lint": "eslint"
   },
