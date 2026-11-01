@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { MobileHeritageShell } from '@/components/mobile/MobileHeritageShell';
-import { PCCommandCenter } from '@/components/desktop/PCCommandCenter';
+import { PCCommandCenter } from '@/components/layout/PCCommandCenter';
 import { LoginScreen } from '@/components/auth/LoginScreen';
 
 export default function HomePage() {

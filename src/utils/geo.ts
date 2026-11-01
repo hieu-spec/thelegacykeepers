@@ -12,12 +12,30 @@ const toDegrees = (radians: number): number => (radians * 180) / Math.PI;
 
 /**
  * Tính khoảng cách giữa 2 tọa độ GPS theo công thức Haversine (đơn vị: mét)
+ * Hỗ trợ cả 2 dạng: calculateDistance(c1, c2) hoặc calculateDistance(lat1, lng1, lat2, lng2)
  */
-export function calculateDistance(coord1: Coordinates, coord2: Coordinates): number {
-  const φ1 = toRadians(coord1.lat);
-  const φ2 = toRadians(coord2.lat);
-  const Δφ = toRadians(coord2.lat - coord1.lat);
-  const Δλ = toRadians(coord2.lng - coord1.lng);
+export function calculateDistance(coord1: Coordinates, coord2: Coordinates): number;
+export function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number;
+export function calculateDistance(
+  coord1OrLat1: Coordinates | number,
+  coord2OrLng1: Coordinates | number,
+  lat2?: number,
+  lng2?: number
+): number {
+  let c1: Coordinates;
+  let c2: Coordinates;
+  if (typeof coord1OrLat1 === 'number' && typeof coord2OrLng1 === 'number') {
+    c1 = { lat: coord1OrLat1, lng: coord2OrLng1 };
+    c2 = { lat: lat2 ?? 0, lng: lng2 ?? 0 };
+  } else {
+    c1 = coord1OrLat1 as Coordinates;
+    c2 = coord2OrLng1 as Coordinates;
+  }
+
+  const φ1 = toRadians(c1.lat);
+  const φ2 = toRadians(c2.lat);
+  const Δφ = toRadians(c2.lat - c1.lat);
+  const Δλ = toRadians(c2.lng - c1.lng);
 
   const a =
     Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
@@ -28,7 +46,7 @@ export function calculateDistance(coord1: Coordinates, coord2: Coordinates): num
 }
 
 /**
- * Alias cho calculateDistance (tương thích ngược với AppContext)
+ * Alias cho calculateDistance (tương thích ngược với AppContext & MinimalHeritageMap)
  */
 export const calculateDistanceMeters = calculateDistance;
 

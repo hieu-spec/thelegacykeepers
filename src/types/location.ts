@@ -1,4 +1,5 @@
 export type LocationRarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'event';
+export type RarityLevel = LocationRarity;
 
 export type LocationContentType = 'landmark' | 'story' | 'witness' | 'battlefield' | 'culture';
 

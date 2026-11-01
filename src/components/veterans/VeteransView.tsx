@@ -2,294 +2,242 @@
 'use client';
 
 import React, { useState } from 'react';
-import { VeteranProfile } from '@/types/system';
-import {
-  Medal,
-  Video,
-  MapPin,
-  HeartHandshake,
-  ShieldCheck,
-  Calendar,
-  Sparkles,
-  Send,
-  CheckCircle2,
-  Volume2,
-} from 'lucide-react';
+import { Volume2, Award, MapPin, CheckCircle2, Flame } from 'lucide-react';
 
-interface VeteransViewProps {
-  veterans: VeteranProfile[];
-  visitedVeteranIds: string[];
-  currentUserName: string;
-  onVisitVeteran: (veteranId: string, tributeMessage?: string) => void;
-  onPlayVeteranAudio: (veteran: VeteranProfile) => void;
+interface VeteranMilestone {
+  time: string;
+  title: string;
+  detail: string;
 }
 
-export default function VeteransView({
-  veterans,
-  visitedVeteranIds,
-  currentUserName,
-  onVisitVeteran,
-  onPlayVeteranAudio,
-}: VeteransViewProps) {
-  const [selectedVeteran, setSelectedVeteran] = useState<VeteranProfile>(veterans[0]);
-  const [tributeInput, setTributeInput] = useState('');
-  const [justUnlockedBanner, setJustUnlockedBanner] = useState(false);
+interface VeteranProfile {
+  id: string;
+  name: string;
+  birthYear: string;
+  role: string;
+  unit: string;
+  hometown: string;
+  campaign: string;
+  pastelBg: string;
+  medals: string[];
+  story: string;
+  quote: string;
+  milestones: VeteranMilestone[];
+}
 
-  const isVisited = visitedVeteranIds.includes(selectedVeteran?.id);
+const VETERANS_DATA: VeteranProfile[] = [
+  {
+    id: 'vu-dang-toan',
+    name: 'Đại tá Vũ Đăng Toàn',
+    birthYear: 'Sinh năm 1947',
+    role: 'Nguyên Chính trị viên - Trưởng xe tăng 390',
+    unit: 'Đại đội 4, Tiểu đoàn 1, Lữ đoàn Xe tăng 203, Quân đoàn 2',
+    hometown: 'Yên Chính, Ý Yên, Nam Định',
+    campaign: 'Chiến dịch Hồ Chí Minh (1975)',
+    pastelBg: 'bg-[#EDE9FE]',
+    medals: ['Huân chương Chiến công hạng Nhất', 'Huy hiệu 50 năm tuổi Đảng', 'Chiến sĩ Quyết thắng'],
+    story:
+      'Trưa ngày 30/4/1975 lịch sử, chiếc xe tăng T-59 mang số hiệu 390 dưới sự chỉ huy của Chính trị viên Vũ Đăng Toàn đã dũng mãnh húc tung cánh cổng chính Dinh Độc Lập, đánh dấu thời khắc toàn thắng thống nhất đất nước.',
+    quote:
+      'Khoảnh khắc cánh cổng sắt đổ sập xuống, trong lòng chúng tôi chỉ có một suy nghĩ duy nhất: Non sông từ nay liền một dải, hòa bình thật rồi!',
+    milestones: [
+      {
+        time: 'Tháng 3/1975',
+        title: 'Chiến dịch Huế - Đà Nẵng',
+        detail: 'Hành quân thần tốc dọc duyên hải miền Trung, đập tan các tuyến phòng thủ ngoại vi.',
+      },
+      {
+        time: '11h30 - 30/4/1975',
+        title: 'Tiến vào Dinh Độc Lập',
+        detail: 'Xe tăng 390 húc đổ cổng chính Dinh Độc Lập, hội quân cùng xe tăng 843.',
+      },
+    ],
+  },
+  {
+    id: 'nguyen-van-tau',
+    name: 'Đại tá Nguyễn Văn Tàu (Tư Cang)',
+    birthYear: 'Sinh năm 1928',
+    role: 'Anh hùng LLVTND - Cụm trưởng Tình báo H.63',
+    unit: 'Cụm Tình báo Chiến lược H.63 - Miền Nam',
+    hometown: 'Long Phước, Bà Rịa - Vũng Tàu',
+    campaign: 'Tình báo Chiến lược Miền Nam',
+    pastelBg: 'bg-[#DCFCE7]',
+    medals: ['Anh hùng Lực lượng Vũ trang Nhân dân', 'Huân chương Độc lập hạng Nhì'],
+    story:
+      'Người chỉ huy huyền thoại của Cụm tình báo H.63 hoạt động ngay giữa lòng Sài Gòn, bảo vệ tuyệt đối an toàn mạng lưới thông tin chiến lược suốt cuộc kháng chiến.',
+    quote:
+      'Hòa bình hôm nay được đánh đổi bằng xương máu của biết bao đồng đội. Các cháu hãy sống, học tập xứng đáng với non sông.',
+    milestones: [
+      {
+        time: '1962 - 1972',
+        title: 'Chỉ huy Cụm tình báo H.63',
+        detail: 'Chuyển hàng trăm bản tin tình báo chiến lược về Trung ương Cục miền Nam.',
+      },
+      {
+        time: 'Tháng 4/1975',
+        title: 'Tham gia Chiến dịch Hồ Chí Minh',
+        detail: 'Chính ủy Lữ đoàn 316 Đặc công - Biệt động tiến vào giải phóng Sài Gòn.',
+      },
+    ],
+  },
+];
 
-  const handleSendTribute = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tributeInput.trim()) return;
-    onVisitVeteran(selectedVeteran.id, tributeInput.trim());
-    setTributeInput('');
-    setJustUnlockedBanner(true);
-    setTimeout(() => setJustUnlockedBanner(false), 5000);
+export default function VeteransView() {
+  const [selectedVeteran, setSelectedVeteran] = useState<VeteranProfile>(VETERANS_DATA[0]);
+  const [tributeCount, setTributeCount] = useState(1428);
+  const [hasSentTribute, setHasSentTribute] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handlePlayVoice = (text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    if (isSpeaking) {
+      setIsSpeaking(false);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'vi-VN';
+    utterance.onend = () => setIsSpeaking(false);
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
   };
 
   return (
-    <div className="p-6 pb-36 text-white max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+    <div className="flex flex-col gap-5 text-[#18181B]">
+      {/* Header & Khung Thắp Nhang Tri Ân Tối Giản */}
+      <div className="bg-white p-5 rounded-3xl border border-zinc-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-extrabold uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
-            <Medal size={15} /> LƯU TRỮ QUỐC GIA • NHÂN CHỨNG SỐNG
+          <span className="px-3 py-1 rounded-full bg-[#18181B] text-white text-[11px] font-medium">
+            Lưu trữ Quốc gia • Nhân chứng Sống
           </span>
-          <h1 className="text-2xl md:text-3xl font-extrabold mt-1">
-            Hồ Sơ Cựu Chiến Binh & Ký Ức Sống
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Lắng nghe lời kể từ những nhân chứng bằng xương bằng thịt, đến thăm và gửi lời tri ân để mở khóa danh hiệu{' '}
-            <span className="text-pink-400 font-bold">★ Người Cháu Tri Ân</span>.
+          <h2 className="text-xl font-semibold text-zinc-900 mt-2">
+            Lắng nghe &amp; Tri ân Cựu Chiến Binh
+          </h2>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Đã có <strong className="text-zinc-900">{tributeCount.toLocaleString('vi-VN')}</strong> lời tri ân được gửi từ thế hệ trẻ.
           </p>
         </div>
 
-        <div className="bg-[#111C2D] border border-amber-500/30 rounded-2xl px-4 py-3 flex items-center gap-3 shrink-0">
-          <HeartHandshake className="text-pink-400" size={24} />
-          <div>
-            <p className="text-[11px] text-slate-400">Hành trình tri ân của bạn</p>
-            <p className="text-sm font-bold text-white">
-              Đã kết nối {visitedVeteranIds.length} / {veterans.length} Cựu chiến binh
-            </p>
-          </div>
-        </div>
+        <button
+          onClick={() => {
+            if (!hasSentTribute) {
+              setTributeCount((c) => c + 1);
+              setHasSentTribute(true);
+            }
+          }}
+          className={`px-4 py-2.5 rounded-full text-xs font-medium flex items-center gap-2 transition ${
+            hasSentTribute
+              ? 'bg-[#DCFCE7] text-[#166534]'
+              : 'bg-[#18181B] text-white hover:bg-zinc-800'
+          }`}
+        >
+          <Flame size={15} />
+          <span>{hasSentTribute ? 'Đã Gửi Lời Tri Ân (+50 EXP)' : 'Gửi Lời Tri Ân Nhân Chứng'}</span>
+        </button>
       </div>
 
-      {justUnlockedBanner && (
-        <div className="bg-gradient-to-r from-pink-950/80 via-amber-950/80 to-pink-950/80 border border-pink-400/60 rounded-2xl p-4 flex items-center justify-between animate-bounce">
-          <div className="flex items-center gap-3">
-            <Sparkles className="text-amber-400" size={22} />
-            <div>
-              <h4 className="text-sm font-bold text-white">
-                Chúc mừng! Bạn đã gửi lời tri ân & mở khóa Danh Hiệu Mới:
-              </h4>
-              <p className="text-xs text-pink-300 font-extrabold">★ NGƯỜI CHÁU TRI ÂN (+300 EXP)</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bố cục 2 cột: Danh sách bên trái - Hồ sơ chi tiết bên phải */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Cột trái: Danh sách Cựu Chiến Binh */}
-        <div className="lg:col-span-4 space-y-3">
-          {veterans.map((vet) => {
-            const active = vet.id === selectedVeteran?.id;
-            const visited = visitedVeteranIds.includes(vet.id);
+      {/* Bố cục 2 Cột đồng bộ Dashboard V18 */}
+      <div className="grid grid-cols-12 gap-5 items-start">
+        
+        {/* Cột Trái (4/12): Danh sách Nhân chứng */}
+        <div className="col-span-12 lg:col-span-4 flex flex-col gap-3">
+          {VETERANS_DATA.map((vet) => {
+            const isSelected = selectedVeteran.id === vet.id;
             return (
               <button
                 key={vet.id}
                 onClick={() => setSelectedVeteran(vet)}
-                className={`w-full text-left p-4 rounded-2xl border transition flex items-start gap-3.5 ${
-                  active
-                    ? 'bg-[#15233B] border-amber-400 shadow-[0_0_20px_rgba(212,175,55,0.2)]'
-                    : 'bg-[#0E1726] border-slate-800 hover:border-slate-700'
+                className={`p-3.5 rounded-2xl border text-left transition flex flex-col gap-2 ${
+                  isSelected
+                    ? 'bg-white border-[#18181B] shadow-sm'
+                    : 'bg-white/80 border-zinc-200/70 hover:bg-white'
                 }`}
               >
-                <img
-                  src={vet.avatarUrl}
-                  alt={vet.fullName}
-                  className="w-14 h-14 rounded-xl object-cover border border-amber-500/40 shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-950/80 text-red-300 border border-red-800/60">
-                      Sinh năm {vet.birthYear}
-                    </span>
-                    {visited && (
-                      <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-                        <CheckCircle2 size={12} /> Đã tri ân
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-sm font-bold text-white mt-1.5 truncate">{vet.fullName}</h3>
-                  <p className="text-xs text-amber-400/90 truncate">{vet.rankAndRole}</p>
-                  <p className="text-[11px] text-slate-400 mt-1 truncate">{vet.unit}</p>
+                <div className="flex items-center justify-between w-full">
+                  <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700 text-[10px] font-semibold">
+                    {vet.birthYear}
+                  </span>
+                  <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-700">
+                    <CheckCircle2 size={13} /> Đã kết nối
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-sm text-zinc-900">{vet.name}</h3>
+                  <p className="text-xs font-medium text-violet-700 mt-0.5">{vet.role}</p>
+                  <p className="text-[11px] text-zinc-500 mt-1 line-clamp-1">{vet.unit}</p>
                 </div>
               </button>
             );
           })}
         </div>
 
-        {/* Cột phải: Chi tiết Hồ sơ Quân nhân, Chiến tích & Video Phỏng vấn */}
-        {selectedVeteran && (
-          <div className="lg:col-span-8 bg-[#0E1726] border border-slate-800 rounded-3xl p-6 space-y-6">
-            {/* Thông tin tổng quan */}
-            <div className="flex flex-col md:flex-row gap-6 items-start border-b border-slate-800 pb-6">
-              <img
-                src={selectedVeteran.avatarUrl}
-                alt={selectedVeteran.fullName}
-                className="w-28 h-28 rounded-2xl object-cover border-2 border-amber-400 shadow-lg shrink-0"
-              />
-              <div className="space-y-2 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                    {selectedVeteran.era}
-                  </span>
-                  {isVisited && (
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                      ✓ Đã hoàn thành Thăm & Tri ân
-                    </span>
-                  )}
-                </div>
-
-                <h2 className="text-2xl font-extrabold text-white">{selectedVeteran.fullName}</h2>
-                <p className="text-sm font-semibold text-amber-400">{selectedVeteran.rankAndRole}</p>
-                <p className="text-xs text-slate-300">
-                  <strong>Đơn vị:</strong> {selectedVeteran.unit} • <strong>Quê quán:</strong> {selectedVeteran.hometown}
-                </p>
-
-                {/* Danh sách Huân chương */}
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {selectedVeteran.medals.map((medal, idx) => (
-                    <span
-                      key={idx}
-                      className="text-[11px] bg-[#162238] text-amber-200 px-2.5 py-1 rounded-lg border border-amber-500/20 flex items-center gap-1"
-                    >
-                      <ShieldCheck size={12} className="text-amber-400" /> {medal}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                onClick={() => onPlayVeteranAudio(selectedVeteran)}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 shrink-0 shadow-lg transition"
-              >
-                <Volume2 size={16} />
-                Nghe Thuyết Minh Hồi Ký
-              </button>
-            </div>
-
-            {/* Tiểu sử hoạt động */}
+        {/* Cột Phải (8/12): Chi tiết Hồi ký & Lời dặn dò */}
+        <div className="col-span-12 lg:col-span-8 bg-white p-5 rounded-3xl border border-zinc-200/80 shadow-2xs flex flex-col gap-5">
+          <div className={`p-4 rounded-2xl ${selectedVeteran.pastelBg} flex flex-wrap items-center justify-between gap-4`}>
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400 mb-2">
-                1. Lịch sử hoạt động & Ký ức chiến trường
-              </h3>
-              <p className="text-sm text-slate-200 leading-relaxed bg-[#09101B] p-4 rounded-2xl border border-slate-800/80">
-                {selectedVeteran.biography}
+              <span className="px-2.5 py-0.5 rounded-full bg-[#18181B] text-white text-[10px] font-medium">
+                {selectedVeteran.campaign}
+              </span>
+              <h3 className="text-lg font-bold text-zinc-900 mt-2">{selectedVeteran.name}</h3>
+              <p className="text-xs font-medium text-zinc-700">{selectedVeteran.role}</p>
+              <p className="text-[11px] text-zinc-600 mt-1 flex items-center gap-1">
+                <MapPin size={12} /> {selectedVeteran.unit} • Quê quán: {selectedVeteran.hometown}
               </p>
             </div>
 
-            {/* Dòng thời gian Chiến tích */}
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400 mb-3">
-                2. Dấu mốc Chiến tích tiêu biểu
-              </h3>
-              <div className="space-y-3">
-                {selectedVeteran.achievements.map((ach, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 rounded-2xl bg-[#111C2D] border border-slate-800 flex items-start gap-3.5"
-                  >
-                    <div className="px-2.5 py-1 rounded-lg bg-red-950/80 border border-red-700/50 text-red-300 text-xs font-bold shrink-0 flex items-center gap-1">
-                      <Calendar size={12} /> {ach.year}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-white">{ach.title}</h4>
-                      <p className="text-xs text-slate-300 mt-1">{ach.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <button
+              onClick={() => handlePlayVoice(`${selectedVeteran.story} ${selectedVeteran.quote}`)}
+              className="px-4 py-2 rounded-full bg-[#18181B] text-white text-xs font-medium flex items-center gap-2 hover:bg-zinc-800 transition shrink-0"
+            >
+              <Volume2 size={14} />
+              <span>{isSpeaking ? 'Đang đọc hồi ký...' : 'Nghe Thuyết Minh Hồi Ký'}</span>
+            </button>
+          </div>
 
-            {/* Video Phỏng vấn Nhân chứng */}
-            {selectedVeteran.videoUrl && (
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400 mb-3 flex items-center gap-2">
-                  <Video size={16} /> 3. Thước phim Phỏng vấn Nhân chứng
-                </h3>
-                <div className="aspect-video w-full rounded-2xl overflow-hidden border border-slate-700 bg-black">
-                  {selectedVeteran.videoUrl.includes('youtube.com') ||
-                  selectedVeteran.videoUrl.includes('youtu.be') ? (
-                    <iframe
-                      src={selectedVeteran.videoUrl}
-                      title={selectedVeteran.fullName}
-                      className="w-full h-full"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <video src={selectedVeteran.videoUrl} controls className="w-full h-full object-cover" />
-                  )}
+          {/* Huân chương */}
+          <div className="flex flex-wrap gap-2">
+            {selectedVeteran.medals.map((medal) => (
+              <span
+                key={medal}
+                className="px-3 py-1 rounded-full bg-zinc-100 text-zinc-700 text-[11px] font-medium flex items-center gap-1.5"
+              >
+                <Award size={12} className="text-zinc-900" />
+                {medal}
+              </span>
+            ))}
+          </div>
+
+          {/* Ký ức chiến trường */}
+          <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100">
+            <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+              1. Ký ức Chiến trường &amp; Lời nhắn gửi
+            </h4>
+            <p className="text-sm text-zinc-800 leading-relaxed">{selectedVeteran.story}</p>
+            <blockquote className="mt-3 pl-3 border-l-2 border-zinc-900 italic text-xs text-zinc-600">
+              &ldquo;{selectedVeteran.quote}&rdquo;
+            </blockquote>
+          </div>
+
+          {/* Dấu mốc chiến tích */}
+          <div>
+            <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2.5">
+              2. Dấu mốc Chiến tích Tiêu biểu
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {selectedVeteran.milestones.map((m) => (
+                <div key={m.time} className="p-3.5 rounded-2xl border border-zinc-200/70 bg-white">
+                  <span className="px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-800 text-[10px] font-semibold">
+                    {m.time}
+                  </span>
+                  <h5 className="font-semibold text-xs text-zinc-900 mt-2">{m.title}</h5>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">{m.detail}</p>
                 </div>
-              </div>
-            )}
-
-            {/* Khu vực Check-in Thăm hỏi & Sổ Lưu Bút Tri Ân */}
-            <div className="bg-gradient-to-br from-[#131F33] to-[#0B1320] border border-amber-500/30 rounded-2xl p-5 space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                <div>
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <MapPin size={16} className="text-amber-400" />
-                    Địa điểm Thăm hỏi & Giao lưu: {selectedVeteran.visitAddress}
-                  </h4>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Xác nhận đến thăm hoặc gửi lời tri ân tới {selectedVeteran.fullName} để nhận +300 EXP và Danh hiệu.
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    onVisitVeteran(selectedVeteran.id);
-                    setJustUnlockedBanner(true);
-                    setTimeout(() => setJustUnlockedBanner(false), 5000);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shrink-0 transition"
-                >
-                  ✓ Check-in Đã Đến Thăm Bác
-                </button>
-              </div>
-
-              <form onSubmit={handleSendTribute} className="flex gap-2">
-                <input
-                  type="text"
-                  value={tributeInput}
-                  onChange={(e) => setTributeInput(e.target.value)}
-                  placeholder={`Viết lời chúc sức khỏe và tri ân gửi tới ${selectedVeteran.fullName}...`}
-                  className="flex-1 bg-[#080E18] border border-slate-700 focus:border-amber-400 rounded-xl px-4 py-2.5 text-xs text-white outline-none"
-                />
-                <button
-                  type="submit"
-                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shrink-0"
-                >
-                  <Send size={14} /> Gửi Tri Ân
-                </button>
-              </form>
-
-              {/* Danh sách lời tri ân */}
-              <div className="space-y-2 pt-2">
-                {selectedVeteran.tributes.map((t, i) => (
-                  <div key={i} className="text-xs bg-[#09101B]/80 border border-slate-800 rounded-xl p-3">
-                    <div className="flex justify-between text-amber-400 font-bold">
-                      <span>{t.user}</span>
-                      <span className="text-[10px] text-slate-500">{t.date}</span>
-                    </div>
-                    <p className="text-slate-300 mt-1">"{t.message}"</p>
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
           </div>
-        )}
+        </div>
+
       </div>
     </div>
   );
