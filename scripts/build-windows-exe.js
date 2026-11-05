@@ -1,15 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { execSync } = require('child_process');
 
 const rootDir = path.resolve(__dirname, '..');
-const zipPath = path.join(
-  process.env.LOCALAPPDATA,
-  'electron',
-  'Cache',
-  '60b62c26a87223a26b919ccbdd07cf1a183db20ae9d2d4d57db8080f0a010515',
-  'electron-v33.2.1-win32-x64.zip'
-);
 const outDir = path.join(rootDir, 'dist-exe', 'The Legacy Keepers-win32-x64');
 const resourcesDir = path.join(outDir, 'resources');
 const appDir = path.join(resourcesDir, 'app');
@@ -18,9 +12,51 @@ const standaloneSource = path.join(rootDir, '.next', 'standalone');
 
 console.log('=== Building Windows Desktop Executable (.exe) ===');
 
-if (!fs.existsSync(zipPath)) {
-  console.error('Electron prebuilt zip not found at:', zipPath);
-  process.exit(1);
+function findElectronZip() {
+  const localAppData =
+    process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+  const cacheDir = path.join(localAppData, 'electron', 'Cache');
+  if (!fs.existsSync(cacheDir)) return null;
+
+  function walk(dir) {
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          const found = walk(fullPath);
+          if (found) return found;
+        } else if (
+          entry.isFile() &&
+          entry.name.startsWith('electron-') &&
+          entry.name.includes('win32-x64') &&
+          entry.name.endsWith('.zip')
+        ) {
+          return fullPath;
+        }
+      }
+    } catch {}
+    return null;
+  }
+  return walk(cacheDir);
+}
+
+const zipPath = findElectronZip();
+console.log('📂 Detected Electron Prebuilt Runtime:', zipPath || 'Not found');
+
+if (!zipPath || !fs.existsSync(zipPath)) {
+  console.log('⚠️ Electron prebuilt cache not found. Attempting electron-packager fallback...');
+  try {
+    execSync('npx electron-packager . "The Legacy Keepers" --platform=win32 --arch=x64 --out=dist-exe --overwrite', {
+      stdio: 'inherit',
+      cwd: rootDir,
+    });
+    console.log('✅ Packaged with electron-packager successfully!');
+    process.exit(0);
+  } catch (e) {
+    console.error('❌ Failed to package Windows executable:', e.message);
+    process.exit(1);
+  }
 }
 
 // 1. Clean and prepare target directory
@@ -47,22 +83,27 @@ if (fs.existsSync(srcExe)) {
 
 // 4. Create resources/app
 fs.mkdirSync(appDir, { recursive: true });
-fs.copyFileSync(
-  path.join(rootDir, 'electron-build', 'package.json'),
-  path.join(appDir, 'package.json')
-);
-fs.copyFileSync(
-  path.join(rootDir, 'electron-build', 'main.js'),
-  path.join(appDir, 'main.js')
-);
-console.log('4. Injected Electron main launcher into resources/app');
+const electronBuildDir = path.join(rootDir, 'electron-build');
+if (fs.existsSync(electronBuildDir)) {
+  fs.copyFileSync(
+    path.join(electronBuildDir, 'package.json'),
+    path.join(appDir, 'package.json')
+  );
+  fs.copyFileSync(
+    path.join(electronBuildDir, 'main.js'),
+    path.join(appDir, 'main.js')
+  );
+  console.log('4. Injected Electron main launcher into resources/app');
+}
 
 // 5. Copy standalone server into resources/standalone
-console.log('5. Copying Next.js standalone bundle into resources/standalone...');
-execSync(
-  `powershell -NoProfile -Command "Copy-Item -Recurse -Force '${standaloneSource}' '${standaloneTarget}'"`,
-  { stdio: 'inherit' }
-);
+if (fs.existsSync(standaloneSource)) {
+  console.log('5. Copying Next.js standalone bundle into resources/standalone...');
+  execSync(
+    `powershell -NoProfile -Command "Copy-Item -Recurse -Force '${standaloneSource}' '${standaloneTarget}'"`,
+    { stdio: 'inherit' }
+  );
+}
 
 console.log('=== Windows Executable Build Complete! ===');
 console.log('Executable path:', targetExe);

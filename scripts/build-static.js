@@ -12,6 +12,40 @@ const dotNextPath = path.join(rootDir, '.next');
 
 let nextConfigOriginal = '';
 
+function restoreFiles() {
+  try {
+    if (fs.existsSync(middlewareBakPath) && !fs.existsSync(middlewarePath)) {
+      fs.renameSync(middlewareBakPath, middlewarePath);
+      console.log('✓ Restored middleware.ts');
+    }
+    if (fs.existsSync(apiBakPath) && !fs.existsSync(apiPath)) {
+      fs.renameSync(apiBakPath, apiPath);
+      console.log('✓ Restored src/app/api');
+    }
+    if (nextConfigOriginal && fs.existsSync(nextConfigPath)) {
+      fs.writeFileSync(nextConfigPath, nextConfigOriginal, 'utf8');
+      console.log('✓ Restored next.config.ts');
+    }
+  } catch (err) {
+    console.error('Lỗi khi khôi phục files:', err);
+  }
+}
+
+// Bắt mọi tín hiệu tắt đột ngột (Ctrl+C, Crash, Kill) để luôn trả lại file nguyên vẹn
+process.on('SIGINT', () => {
+  restoreFiles();
+  process.exit(1);
+});
+process.on('SIGTERM', () => {
+  restoreFiles();
+  process.exit(1);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  restoreFiles();
+  process.exit(1);
+});
+
 try {
   console.log('=== Step 1: Isolating Static Mobile Frontend ===');
 
@@ -48,16 +82,5 @@ try {
   process.exitCode = 1;
 } finally {
   console.log('=== Step 3: Restoring Full-Stack Architecture ===');
-  if (fs.existsSync(middlewareBakPath)) {
-    fs.renameSync(middlewareBakPath, middlewarePath);
-    console.log('✓ Restored middleware.ts');
-  }
-  if (fs.existsSync(apiBakPath)) {
-    fs.renameSync(apiBakPath, apiPath);
-    console.log('✓ Restored src/app/api');
-  }
-  if (nextConfigOriginal) {
-    fs.writeFileSync(nextConfigPath, nextConfigOriginal, 'utf8');
-    console.log('✓ Restored next.config.ts');
-  }
+  restoreFiles();
 }

@@ -1,46 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap');
 @import "tailwindcss";
 @source "../**/*.{ts,tsx}";
 
-@layer base {
-  :root {
-    --sat: env(safe-area-inset-top, 0px);
-    --sab: env(safe-area-inset-bottom, 0px);
-    --sal: env(safe-area-inset-left, 0px);
-    --sar: env(safe-area-inset-right, 0px);
-    --heritage-gold: #D4AF37;
-    --heritage-gold-light: #FDE047;
-    --heritage-gold-dark: #996515;
-    --heritage-navy-dark: #0B1320;
-    --heritage-navy-mid: #111C2D;
-    --heritage-navy-card: #16243A;
-    --parchment-bg: #FAF6F0;
-    --parchment-card: #FFFFFF;
-    --parchment-border: #E8DFD3;
-    --cinnabar-red: #8B2626;
-    --cinnabar-light: #C0392B;
-    --bronze-gold: #D9A05B;
-  }
+:root {
+  --bg-parchment: #F4EFE6;
+  --bg-parchment-dark: #EAE0D0;
+  --bg-card-vintage: #FAF6EE;
+  --border-bronze: #C8AE7D;
+  --border-bronze-dark: #9E7B42;
+  --text-ink: #2B2118;
+  --text-sepia: #5C4938;
+  --accent-cinnabar: #8B1E1E;
+  --accent-cinnabar-hover: #6E1616;
+  --accent-gold: #B48327;
+  --accent-jade: #2E5A44;
+}
 
-  html,
-  body {
-    overscroll-behavior-y: none;
-    -webkit-tap-highlight-color: transparent;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
-    background-color: #070c15;
-    color: #F8FAFC;
-    font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
-    overflow: hidden;
-    -webkit-font-smoothing: antialiased;
-  }
+html, body {
+  background-color: var(--bg-parchment);
+  color: var(--text-ink);
+  font-family: 'Be Vietnam Pro', sans-serif;
+  /* Hoa văn giấy dó hạt mịn */
+  background-image: 
+    radial-gradient(rgba(158, 123, 66, 0.08) 1px, transparent 0),
+    radial-gradient(rgba(139, 30, 30, 0.04) 1px, transparent 0);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
 
-  .font-heritage {
-    font-family: var(--font-cinzel), 'Cinzel', serif;
+/* Tiêu đề mang phong cách khắc gỗ / sử ký */
+h1, h2, h3, .font-heritage {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Thẻ Card phong cách cổ điển */
+.heritage-card {
+  background-color: var(--bg-card-vintage);
+  border: 1px solid var(--border-bronze);
+  box-shadow: 0 4px 16px -2px rgba(43, 33, 24, 0.08), inset 0 0 24px rgba(200, 174, 125, 0.12);
+}
+
+/* Hiệu ứng sóng Radar quét kỷ vật */
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.2);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
   }
 }
 
-/* Các class tiện ích cho iPhone có Dynamic Island & Home Bar */
+.radar-ring {
+  animation: radar-pulse 2.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* Thanh cuộn thanh mảnh cho Laptop */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #EAE0D0;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb {
+  background: #B48327;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8B1E1E;
+}
+
+/* Các tiện ích cuộn mượt và vùng an toàn thiết bị di động */
+.lk-force-scroll {
+  overflow-y: scroll !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+}
+
 .pt-ios-safe {
   padding-top: max(0.75rem, env(safe-area-inset-top));
 }
@@ -49,223 +89,185 @@
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
-.ios-frosted-glass {
-  background: rgba(11, 19, 32, 0.78);
-  -webkit-backdrop-filter: saturate(180%) blur(22px);
-  backdrop-filter: saturate(180%) blur(22px);
-}
+/* ==========================================================================
+   MODERN EDITORIAL SPATIAL MAP — THE LEGACY KEEPERS
+   ========================================================================== */
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.4);
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.4);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.8);
-}
-
-/* Keyframe Animations */
-@keyframes radar-sweep {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes sonar-pulse {
-  0% {
-    transform: scale(0.6);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1.6);
-    opacity: 0;
-  }
-}
-
-@keyframes gold-glow {
-  0%, 100% {
-    box-shadow: 0 0 15px rgba(212, 175, 55, 0.35), 0 0 30px rgba(212, 175, 55, 0.15);
-  }
-  50% {
-    box-shadow: 0 0 25px rgba(212, 175, 55, 0.65), 0 0 45px rgba(212, 175, 55, 0.3);
-  }
-}
-
-@keyframes cloud-drift {
-  0% {
-    transform: translateX(-10%);
-  }
-  50% {
-    transform: translateX(10%);
-  }
-  100% {
-    transform: translateX(-10%);
-  }
-}
-
-.animate-radar-sweep {
-  animation: radar-sweep 6s linear infinite;
-  transform-origin: center center;
-}
-
-.animate-sonar-pulse {
-  animation: sonar-pulse 2.8s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
-}
-
-.animate-gold-glow {
-  animation: gold-glow 3s ease-in-out infinite;
-}
-
-.animate-cloud-drift {
-  animation: cloud-drift 18s ease-in-out infinite;
-}
-
-/* Glassmorphism Classes */
-.glass-dark-card {
-  background: rgba(17, 28, 45, 0.82);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(212, 175, 55, 0.2);
-}
-
-.glass-dark-card-hover:hover {
-  border-color: rgba(212, 175, 55, 0.5);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 15px rgba(212, 175, 55, 0.15);
-}
-
-.glass-parchment-card {
-  background: #FFFFFF;
-  border: 1px solid #EADBCE;
-  box-shadow: 0 4px 20px rgba(139, 38, 38, 0.04), 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-/* Heritage Text Gradient */
-.gold-text-gradient {
-  background: linear-gradient(135deg, #FFF176 0%, #D4AF37 50%, #AA771C 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.cinnabar-text-gradient {
-  background: linear-gradient(135deg, #C0392B 0%, #8B2626 70%, #581818 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* ========================================================
-   POKÉMON GO STYLE 3D MAP & CHARACTER ANIMATIONS
-   ======================================================== */
-@keyframes player-walk-bob {
-  0%, 100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  25% {
-    transform: translateY(-5px) rotate(-3deg);
-  }
-  50% {
-    transform: translateY(-1px) rotate(0deg);
-  }
-  75% {
-    transform: translateY(-5px) rotate(3deg);
-  }
-}
-
-@keyframes player-idle-breathe {
-  0%, 100% {
-    transform: translateY(0px) scale(1);
-  }
-  50% {
-    transform: translateY(-2px) scale(1.02);
-  }
-}
-
-@keyframes pokemon-radar-pulse {
-  0% {
-    transform: scale(0.3);
-    opacity: 0.9;
-    border-width: 3px;
-  }
-  50% {
-    opacity: 0.55;
-  }
-  100% {
-    transform: scale(2.2);
-    opacity: 0;
-    border-width: 1px;
-  }
-}
-
-@keyframes beacon-pillar {
-  0%, 100% {
-    opacity: 0.75;
-    transform: scaleX(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scaleX(1.35);
-  }
-}
-
-@keyframes floating-pin {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-6px);
-  }
-}
-
-.animate-player-walk {
-  animation: player-walk-bob 0.55s ease-in-out infinite;
-}
-
-.animate-player-idle {
-  animation: player-idle-breathe 2.4s ease-in-out infinite;
-}
-
-.animate-pokemon-radar {
-  animation: pokemon-radar-pulse 2.2s cubic-bezier(0.1, 0.7, 0.1, 1) infinite;
-}
-
-.animate-beacon-pillar {
-  animation: beacon-pillar 2s ease-in-out infinite;
-}
-
-.animate-floating-pin {
-  animation: floating-pin 2.5s ease-in-out infinite;
-}
-
-/* MapLibre GL Tactical Customization */
-.maplibregl-map {
-  width: 100%;
-  height: 100%;
-  position: absolute !important;
-  inset: 0;
-}
-
-.maplibregl-canvas-container {
-  width: 100%;
-  height: 100%;
-}
-
-.maplibregl-canvas {
+/* Nền mặc định của khung bản đồ trong lúc tải Tile */
+.leaflet-container {
+  background-color: #F4F1EA !important;
+  font-family: var(--font-be-vietnam-pro), -apple-system, BlinkMacSystemFont, sans-serif !important;
   outline: none;
 }
 
-.maplibregl-ctrl-attrib {
-  display: none !important;
+/* 1. Chế độ Giấy Kiến Trúc (Editorial Warm Alabaster) */
+.map-editorial-warm .leaflet-tile-pane {
+  filter: sepia(0.09) saturate(0.88) contrast(1.02) brightness(0.99);
+  transition: filter 0.4s ease;
 }
 
-.maplibregl-ctrl-logo {
-  display: none !important;
+/* 2. Chế độ Thực Địa Sắc Nét (Voyager Clean) */
+.map-voyager-clean .leaflet-tile-pane {
+  filter: saturate(0.78) contrast(1.04) brightness(0.98);
+  transition: filter 0.4s ease;
+}
+
+/* 3. Chế độ Không Ảnh Vệ Tinh (Crisp Satellite) */
+.map-satellite-crisp .leaflet-tile-pane {
+  filter: saturate(0.92) contrast(1.08) brightness(0.95);
+  transition: filter 0.4s ease;
+}
+
+/* Xóa khung mặc định của Leaflet DivIcon */
+.editorial-pill-icon,
+.editorial-compass-icon,
+.editorial-player-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Vòng la bàn kiến trúc xoay chậm tại tâm di tích */
+@keyframes architectural-compass-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.compass-ring-spin {
+  animation: architectural-compass-spin 48s linear infinite;
+  transform-origin: center center;
+}
+
+/* Hiệu ứng sóng tỏa nhẹ cho vị trí người dùng */
+@keyframes spatial-beacon-pulse {
+  0%   { transform: scale(0.85); opacity: 0.75; }
+  70%  { transform: scale(2.2);  opacity: 0; }
+  100% { transform: scale(2.2);  opacity: 0; }
+}
+
+.player-beacon-pulse {
+  animation: spatial-beacon-pulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* Đường nối dòng chảy lịch sử chuyển động (Animated Dash Flow) */
+@keyframes timeline-dash-flow {
+  to { stroke-dashoffset: -48; }
+}
+
+.leaflet-interactive.heritage-timeline-flow {
+  stroke-dasharray: 8, 8;
+  animation: timeline-dash-flow 1.8s linear infinite;
+}
+
+/* Sóng âm thanh (Equalizer Waveform) trên Pill khi đang phát thuyết minh */
+@keyframes eq-bar-bounce {
+  0%, 100% { height: 4px; }
+  50%       { height: 12px; }
+}
+
+.eq-bar-1 { animation: eq-bar-bounce 0.7s ease-in-out infinite; }
+.eq-bar-2 { animation: eq-bar-bounce 0.5s ease-in-out 0.15s infinite; }
+.eq-bar-3 { animation: eq-bar-bounce 0.8s ease-in-out 0.3s infinite; }
+
+/* Tinh chỉnh thanh Attribution của Leaflet gọn và tối giản */
+.leaflet-control-attribution {
+  background: rgba(247, 245, 240, 0.75) !important;
+  backdrop-filter: blur(6px);
+  color: #78716C !important;
+  font-size: 10px !important;
+  padding: 2px 8px !important;
+  border-radius: 9999px !important;
+  margin: 0 12px 10px 0 !important;
+  border: 1px solid rgba(214, 211, 209, 0.6);
+}
+
+.leaflet-control-attribution a {
+  color: #57534E !important;
+  text-decoration: none !important;
+}
+
+/* === HERITAGE MAP 2.0 - PARCHMENT & ARCHITECTURAL STRUCTURE FILTER === */
+.leaflet-container.heritage-map-canvas {
+  background-color: #ebe0cb !important;
+  font-family: inherit;
+}
+
+/* Đảm bảo tile-pane luôn hiển thị - không bao giờ bị ẩn */
+.heritage-map-canvas .leaflet-tile-pane,
+.heritage-map-canvas .leaflet-layer {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* ── CSS Filter theo mode (áp lên .leaflet-tile-pane thông qua class của container) ──
+   Đây là cách đúng để áp filter vào toàn bộ tile layer.
+   Leaflet render tile vào <img> bên trong .leaflet-tile-pane,
+   nên filter đặt ở cấp .leaflet-tile-pane sẽ áp dụng cho tất cả tile hiện tại & tương lai. */
+
+/* Chế độ Cấu trúc 2D: Tăng contrast để nổi rõ outline kiến trúc & đường phố */
+.heritage-map-canvas.heritage-mode-structure .leaflet-tile-pane {
+  filter: sepia(0.22) contrast(1.32) brightness(0.94) saturate(0.95) !important;
+}
+
+/* Chế độ Vệ tinh: Tăng nhẹ độ sắc nét từ Esri World Imagery */
+.heritage-map-canvas.heritage-mode-satellite .leaflet-tile-pane {
+  filter: contrast(1.12) saturate(1.08) !important;
+}
+
+/* Chế độ Cổ điển: Tông giấy cổ hơi sepia cho Esri World Street */
+.heritage-map-canvas.heritage-mode-parchment .leaflet-tile-pane {
+  filter: sepia(0.28) contrast(1.22) brightness(0.95) saturate(0.92) !important;
+}
+
+/* Đưa dòng bản quyền gọn xuống góc và không đè lên thẻ nổi */
+.heritage-map-canvas .leaflet-control-attribution {
+  background: rgba(244, 235, 217, 0.88) !important;
+  color: #6b5344 !important;
+  font-size: 10px !important;
+  padding: 2px 6px !important;
+  border-top-left-radius: 6px;
+  z-index: 400 !important;
+}
+
+/* Tùy chỉnh nút Zoom đồng bộ phong cách cổ điển */
+.heritage-map-canvas .leaflet-control-zoom {
+  border: 1px solid #c8b08b !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(62, 39, 35, 0.12) !important;
+}
+
+.heritage-map-canvas .leaflet-control-zoom a {
+  background-color: #fbf6ec !important;
+  color: #4a2c1d !important;
+  border-bottom: 1px solid #dfd1b8 !important;
+}
+
+.heritage-map-canvas .leaflet-control-zoom a:hover {
+  background-color: #f0e4ce !important;
+}
+
+/* Hiệu ứng vòng sóng Radar tại điểm đang chọn */
+@keyframes heritageRadarPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.4);
+    opacity: 0;
+  }
+}
+
+.heritage-radar-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 90px;
+  height: 90px;
+  border-radius: 9999px;
+  border: 2px solid rgba(139, 29, 29, 0.45);
+  background: radial-gradient(circle, rgba(139, 29, 29, 0.12) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  animation: heritageRadarPulse 2.8s infinite ease-out;
+  pointer-events: none;
 }

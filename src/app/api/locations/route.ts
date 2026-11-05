@@ -1,52 +1,76 @@
 // src/app/api/locations/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { MOCK_LOCATIONS } from '@/data/locations';
-import { HistoricalLocation } from '@/types/location';
-import { verifyAdminRequest } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import fs from "fs/promises";
+import path from "path";
+import { MOCK_LOCATIONS, HistoricalLocation } from "@/data/mockLocations";
+import { verifyAdminRequest } from "@/lib/auth";
 
-// Bộ nhớ đệm trên Server (kết nối Supabase / PostgreSQL khi có DATABASE_URL)
-let serverLocationsStore: HistoricalLocation[] = [...MOCK_LOCATIONS];
+const DB_DIR = path.join(process.cwd(), "data");
+const DB_FILE = path.join(DB_DIR, "locations.db.json");
 
-// GET /api/locations - Lấy danh sách địa danh
-export async function GET() {
+async function readLocationsDB(): Promise<HistoricalLocation[]> {
   try {
-    return NextResponse.json({
-      success: true,
-      locations: serverLocationsStore,
-      data: serverLocationsStore,
-      count: serverLocationsStore.length,
-    });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || 'Không thể tải danh sách địa danh' },
-      { status: 500 }
-    );
+    const raw = await fs.readFile(DB_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch {
+    // Khởi tạo file lần đầu từ MOCK_LOCATIONS
+    try {
+      await fs.mkdir(DB_DIR, { recursive: true });
+      await fs.writeFile(DB_FILE, JSON.stringify(MOCK_LOCATIONS, null, 2), "utf-8");
+    } catch {}
   }
+  return MOCK_LOCATIONS;
 }
 
-// POST /api/locations - Thêm mới hoặc cập nhật địa danh
+async function writeLocationsDB(locations: HistoricalLocation[]): Promise<void> {
+  await fs.mkdir(DB_DIR, { recursive: true });
+  await fs.writeFile(DB_FILE, JSON.stringify(locations, null, 2), "utf-8");
+}
+
+export async function GET() {
+  const locations = await readLocationsDB();
+  return NextResponse.json({
+    success: true,
+    locations,
+    data: locations,
+    total: locations.length,
+    count: locations.length,
+  });
+}
+
 export async function POST(req: NextRequest) {
-  // Kiểm tra quyền Admin trước khi cho phép thêm/sửa
   const isAdmin = await verifyAdminRequest(req);
   if (!isAdmin) {
     return NextResponse.json(
-      { success: false, error: 'Unauthorized: Yêu cầu quyền Quản trị viên' },
+      { success: false, error: "Unauthorized: Yêu cầu quyền Quản trị viên" },
       { status: 401 }
     );
   }
 
   try {
     const body = await req.json();
-    const { action, locations: batchLocations } = body;
+    const locations = await readLocationsDB();
 
-    // Xử lý lưu hàng loạt (Batch save)
-    if (action === 'batch' && Array.isArray(batchLocations)) {
-      serverLocationsStore = batchLocations;
+    // Hỗ trợ đồng bộ hàng loạt (Batch save)
+    if (body.action === "batch" && Array.isArray(body.locations)) {
+      await writeLocationsDB(body.locations);
       return NextResponse.json({
         success: true,
-        message: `Đã lưu thành công ${batchLocations.length} địa danh vào bộ nhớ máy chủ!`,
-        locations: serverLocationsStore,
-        data: serverLocationsStore,
+        message: `Đã lưu thành công ${body.locations.length} địa danh vào ổ đĩa!`,
+        locations: body.locations,
+        data: body.locations,
+        synced: true,
+      });
+    }
+
+    if (Array.isArray(body.locations)) {
+      await writeLocationsDB(body.locations);
+      return NextResponse.json({
+        success: true,
+        locations: body.locations,
+        data: body.locations,
+        synced: true,
       });
     }
 
@@ -55,20 +79,21 @@ export async function POST(req: NextRequest) {
 
     if (!targetLocation || !targetLocation.id || !targetLocation.name) {
       return NextResponse.json(
-        { success: false, error: 'Dữ liệu di tích không hợp lệ (thiếu ID hoặc Tên di tích)' },
+        { success: false, error: "Dữ liệu di tích không hợp lệ (thiếu ID hoặc Tên di tích)" },
         { status: 400 }
       );
     }
 
-    const existingIndex = serverLocationsStore.findIndex((loc) => loc.id === targetLocation.id);
+    const existingIndex = locations.findIndex((l) => l.id === targetLocation.id);
+    let updated: HistoricalLocation[];
     if (existingIndex >= 0) {
-      serverLocationsStore[existingIndex] = {
-        ...serverLocationsStore[existingIndex],
-        ...targetLocation,
-      };
+      updated = [...locations];
+      updated[existingIndex] = { ...updated[existingIndex], ...targetLocation };
     } else {
-      serverLocationsStore = [targetLocation, ...serverLocationsStore];
+      updated = [targetLocation, ...locations];
     }
+
+    await writeLocationsDB(updated);
 
     return NextResponse.json({
       success: true,
@@ -77,58 +102,46 @@ export async function POST(req: NextRequest) {
         : `Đã thêm mới thành công địa danh "${targetLocation.name}"!`,
       location: targetLocation,
       data: targetLocation,
-      locations: serverLocationsStore,
+      locations: updated,
     });
   } catch (error: any) {
-    console.error('Lỗi khi lưu địa danh:', error);
+    console.error("Lỗi khi lưu địa danh:", error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Lỗi hệ thống khi lưu địa danh' },
+      { success: false, error: error.message || "Lỗi hệ thống khi lưu địa danh" },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/locations?id=xxx - Xóa địa danh
 export async function DELETE(req: NextRequest) {
   const isAdmin = await verifyAdminRequest(req);
   if (!isAdmin) {
     return NextResponse.json(
-      { success: false, error: 'Unauthorized: Yêu cầu quyền Quản trị viên' },
+      { success: false, error: "Unauthorized: Yêu cầu quyền Quản trị viên" },
       { status: 401 }
     );
   }
 
   try {
     const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-
+    const id = searchParams.get("id");
     if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'Thiếu ID di tích cần xóa' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Missing id" }, { status: 400 });
     }
 
-    const initialLength = serverLocationsStore.length;
-    serverLocationsStore = serverLocationsStore.filter((loc) => loc.id !== id);
-
-    if (serverLocationsStore.length === initialLength) {
-      return NextResponse.json(
-        { success: false, error: `Không tìm thấy địa danh với ID: ${id}` },
-        { status: 404 }
-      );
-    }
+    const locations = await readLocationsDB();
+    const filtered = locations.filter((l) => l.id !== id);
+    await writeLocationsDB(filtered);
 
     return NextResponse.json({
       success: true,
-      message: `Đã xóa thành công địa danh ${id} khỏi cơ sở dữ liệu!`,
-      locations: serverLocationsStore,
-      data: serverLocationsStore,
+      message: `Đã xóa địa danh có ID "${id}" thành công!`,
+      deleted: id,
+      locations: filtered,
     });
   } catch (error: any) {
-    console.error('Lỗi khi xóa địa danh:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Lỗi hệ thống khi xóa địa danh' },
+      { success: false, error: error.message || "Lỗi khi xóa địa danh" },
       { status: 500 }
     );
   }

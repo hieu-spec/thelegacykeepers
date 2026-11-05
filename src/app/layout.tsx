@@ -1,40 +1,20 @@
-import type { Metadata, Viewport } from 'next';
-import { Be_Vietnam_Pro, Cinzel } from 'next/font/google';
-import './globals.css';
-import { AppProvider } from '@/context/AppContext';
+// src/app/layout.tsx
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
+import { AppProvider } from "@/context/AppContext";
 
-const beVietnam = Be_Vietnam_Pro({
-  weight: ['300', '400', '500', '600', '700', '800'],
-  subsets: ['latin', 'vietnamese'],
-  variable: '--font-be-vietnam',
-  display: 'swap',
-});
-
-const cinzel = Cinzel({
-  weight: ['500', '600', '700', '800', '900'],
-  subsets: ['latin'],
-  variable: '--font-cinzel',
-  display: 'swap',
-});
+export const metadata: Metadata = {
+  title: "The Legacy Keepers | Người Gìn Giữ Di Sản",
+  description:
+    "Hành trình định vị thế giới thực, giải mã biên niên sử và tri ân nhân chứng lịch sử Việt Nam.",
+};
 
 export const viewport: Viewport = {
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  viewportFit: 'cover', // BẮT BUỘC cho iPhone để tràn lên vùng Dynamic Island & xuống dưới Home Indicator
-  themeColor: '#070C15',
-};
-
-export const metadata: Metadata = {
-  title: 'The Legacy Keepers | Người Gìn Giữ Di Sản',
-  description:
-    'Ứng dụng mobile-first khám phá lịch sử Việt Nam qua định vị GPS kết hợp minigame Mảnh ghép Lịch sử và sưu tầm huy hiệu danh dự.',
-  appleWebApp: {
-    capable: true,
-    title: 'Di Sản Việt',
-    statusBarStyle: 'black-translucent',
-  },
+  themeColor: "#F4EFE6",
 };
 
 export default function RootLayout({
@@ -43,11 +23,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`${beVietnam.variable} ${cinzel.variable}`} suppressHydrationWarning>
-      <body suppressHydrationWarning>
-        <div className="bg-[#05080E] text-slate-100 min-h-screen antialiased overflow-hidden">
-          <AppProvider>{children}</AppProvider>
-        </div>
+    <html lang="vi">
+      <body className="antialiased bg-[#F4EFE6] text-[#2B2118] selection:bg-[#8B1E1E] selection:text-[#FAF6EE]">
+        <AppProvider>{children}</AppProvider>
       </body>
     </html>
   );

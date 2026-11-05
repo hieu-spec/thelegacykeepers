@@ -44,3 +44,4 @@ next-env.d.ts
 dist-exe/
 electron-build/
 release_builds/
+*.lnk

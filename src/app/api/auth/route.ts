@@ -1,6 +1,6 @@
 // src/app/api/auth/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { AUTH_COOKIE_NAME, getAdminTokenValue } from '@/lib/auth';
+import { AUTH_COOKIE_NAME, LEGACY_COOKIE_NAME, getAdminTokenValue } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,18 +17,28 @@ export async function POST(req: NextRequest) {
       (password === validAdminPass || password === '123');
 
     if (isMatch) {
+      const token = await getAdminTokenValue();
       const res = NextResponse.json({
         success: true,
         user: { username, role: 'ADMIN' },
+        token,
         message: 'Đăng nhập Quản trị viên thành công!',
       });
 
-      res.cookies.set(AUTH_COOKIE_NAME, getAdminTokenValue(), {
+      res.cookies.set(AUTH_COOKIE_NAME, token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
         maxAge: 60 * 60 * 24, // 24 giờ
+      });
+
+      res.cookies.set(LEGACY_COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24,
       });
 
       return res;
@@ -52,5 +62,6 @@ export async function DELETE() {
     message: 'Đã đăng xuất thành công',
   });
   res.cookies.delete(AUTH_COOKIE_NAME);
+  res.cookies.delete(LEGACY_COOKIE_NAME);
   return res;
 }

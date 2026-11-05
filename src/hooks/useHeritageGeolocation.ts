@@ -1,86 +1,93 @@
 // src/hooks/useHeritageGeolocation.ts
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { DIORAMA_PRESETS } from '@/constants/minimalTheme';
+import { useState, useEffect, useCallback } from "react";
 
 export interface GeoCoordinates {
   lat: number;
   lng: number;
-  accuracy?: number;
-  speedKmh?: number | null;
+  speedKmh: number;
+  isSimulated: boolean;
+}
+
+// Tọa độ chuẩn tại Bến Nhà Rồng (Quận 4, TP.HCM)
+const DEFAULT_BEN_NHA_RONG_COORDS: GeoCoordinates = {
+  lat: 10.7683,
+  lng: 106.7068,
+  speedKmh: 0,
+  isSimulated: true,
+};
+
+// Công thức Haversine tính khoảng cách thực tế (mét) giữa 2 tọa độ
+export function calculateDistanceMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371e3; // Bán kính Trái Đất (mét)
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLng = (lng2 - lng1) * rad;
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
 }
 
 export function useHeritageGeolocation() {
-  // Mặc định khởi tạo tại Bến Nhà Rồng nếu trình duyệt chưa cấp quyền GPS
-  const [coords, setCoords] = useState<GeoCoordinates>({
-    lat: 10.7683,
-    lng: 106.7068,
-  });
-  const [mode, setMode] = useState<'REAL_GPS' | 'DIORAMA'>('REAL_GPS');
-  const [gpsError, setGpsError] = useState<string | null>(() => {
-    if (typeof window !== 'undefined' && !('geolocation' in navigator)) {
-      return 'Thiết bị không hỗ trợ định vị GPS.';
-    }
-    return null;
-  });
-  const [isSpeedWarning, setIsSpeedWarning] = useState(false);
+  const [coords, setCoords] = useState<GeoCoordinates>(DEFAULT_BEN_NHA_RONG_COORDS);
+  const [speedWarning, setSpeedWarning] = useState<boolean>(false);
 
-  // Theo dõi GPS thật từ thiết bị (Không dùng bước đi giả lập)
   useEffect(() => {
-    if (mode !== 'REAL_GPS') return;
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
       return;
     }
 
     const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const speedMs = position.coords.speed; // m/s
-        const speedKmh = speedMs !== null ? speedMs * 3.6 : 0;
-
-        // Cảnh báo nếu di chuyển quá 35km/h để chống gian lận & đảm bảo an toàn
-        setIsSpeedWarning(speedKmh > 35);
-        setGpsError(null);
+      (pos) => {
+        const speedMs = pos.coords.speed || 0;
+        const speedKmh = Math.round(speedMs * 3.6);
+        setSpeedWarning(speedKmh > 35);
 
         setCoords({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
           speedKmh,
+          isSimulated: false,
         });
       },
       () => {
-        setGpsError('Đang dùng vị trí mặc định (Chưa bật quyền vị trí GPS).');
+        // Nếu Laptop không có chip GPS hoặc bị từ chối quyền, tự động dùng tọa độ Bến Nhà Rồng để không làm hỏng bản đồ
+        setCoords(DEFAULT_BEN_NHA_RONG_COORDS);
       },
       {
         enableHighAccuracy: true,
+        timeout: 8000,
         maximumAge: 5000,
-        timeout: 10000,
       }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [mode]);
-
-  // Chuyển sang góc nhìn Tham quan Từ xa (Chỉ xem tư liệu & chơi thử, không tính Check-in thực địa)
-  const flyToDioramaPreset = useCallback((presetId: string) => {
-    const found = DIORAMA_PRESETS.find((p) => p.id === presetId);
-    if (found) {
-      setMode('DIORAMA');
-      setCoords({ lat: found.lat, lng: found.lng, accuracy: 0, speedKmh: 0 });
-    }
   }, []);
 
-  const switchToRealGps = useCallback(() => {
-    setMode('REAL_GPS');
+  // Cho phép dịch chuyển tức thời tới một di tích khi test trên Laptop
+  const teleportToSite = useCallback((lat: number, lng: number) => {
+    setCoords({
+      lat,
+      lng,
+      speedKmh: 0,
+      isSimulated: true,
+    });
   }, []);
 
   return {
     coords,
-    mode,
-    gpsError,
-    isSpeedWarning,
-    flyToDioramaPreset,
-    switchToRealGps,
+    speedWarning,
+    teleportToSite,
+    calculateDistanceMeters,
   };
 }
